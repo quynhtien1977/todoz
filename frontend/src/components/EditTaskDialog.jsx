@@ -13,6 +13,7 @@ import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import { priorityOptions } from "@/lib/data";
+import { useAuth } from "@/context/AuthContext";
 import {
   Popover,
   PopoverContent,
@@ -33,10 +34,20 @@ const priorityColors = {
 };
 
 const EditTaskDialog = ({ task, open, setOpen, handleTaskChanged }) => {
+  const { user } = useAuth();
   const [title, setTitle] = useState(task.title || "");
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority || "medium");
   const [openPriority, setOpenPriority] = useState(false);
+
+  // Helper để cập nhật guest task trong localStorage
+  const updateGuestTask = (taskId, updates) => {
+    const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
+    const updatedTasks = guestTasks.map((t) =>
+      t._id === taskId ? { ...t, ...updates } : t
+    );
+    localStorage.setItem("guestTasks", JSON.stringify(updatedTasks));
+  };
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -45,11 +56,19 @@ const EditTaskDialog = ({ task, open, setOpen, handleTaskChanged }) => {
     }
 
     try {
-      await api.put(`/tasks/${task._id}`, {
+      const updates = {
         title,
         description,
         priority,
-      });
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (user) {
+        await api.put(`/tasks/${task._id}`, updates);
+      } else {
+        updateGuestTask(task._id, updates);
+      }
+
       toast.success("Nhiệm vụ đã được cập nhật thành công!");
       setOpen(false);
       handleTaskChanged();
@@ -111,7 +130,8 @@ const EditTaskDialog = ({ task, open, setOpen, handleTaskChanged }) => {
                     priorityColors[priority]
                   )}
                 >
-                  {priorityOptions.find((p) => p.value === priority)?.label || "Trung bình"}
+                  {priorityOptions.find((p) => p.value === priority)?.label ||
+                    "Trung bình"}
                   <ChevronDown className="size-4 opacity-50" />
                 </Button>
               </PopoverTrigger>

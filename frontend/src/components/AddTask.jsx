@@ -6,6 +6,7 @@ import { Plus, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import { priorityOptions } from "@/lib/data";
+import { useAuth } from "@/context/AuthContext";
 import {
   Popover,
   PopoverContent,
@@ -20,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const AddTask = ({ handleNewTaskAdded }) => {
+  const { user } = useAuth();
   const [newTaskTitle, setNewTaskTitle] = React.useState("");
   const [newTaskDescription, setNewTaskDescription] = React.useState("");
   const [newTaskPriority, setNewTaskPriority] = React.useState("medium");
@@ -33,17 +35,40 @@ const AddTask = ({ handleNewTaskAdded }) => {
 
   const addTask = async () => {
     if (newTaskTitle.trim()) {
-      try {
-        await api.post("/tasks", {
-          title: newTaskTitle,
-          description: newTaskDescription,
-          priority: newTaskPriority,
-        });
-        toast.success(`Nhiệm vụ ${newTaskTitle} đã được thêm!`);
-        handleNewTaskAdded();
-      } catch (error) {
-        console.error("Lỗi khi thêm nhiệm vụ:", error);
-        toast.error("Đã xảy ra lỗi khi thêm nhiệm vụ.");
+      if (user) {
+        // Đã đăng nhập - lưu vào server
+        try {
+          await api.post("/tasks", {
+            title: newTaskTitle,
+            description: newTaskDescription,
+            priority: newTaskPriority,
+          });
+          toast.success(`Nhiệm vụ ${newTaskTitle} đã được thêm!`);
+          handleNewTaskAdded();
+        } catch (error) {
+          console.error("Lỗi khi thêm nhiệm vụ:", error);
+          toast.error("Đã xảy ra lỗi khi thêm nhiệm vụ.");
+        }
+      } else {
+        // Guest mode - lưu vào localStorage
+        try {
+          const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
+          const newTask = {
+            _id: `guest_${Date.now()}`,
+            title: newTaskTitle,
+            description: newTaskDescription,
+            priority: newTaskPriority,
+            status: "pending",
+            createdAt: new Date().toISOString(),
+          };
+          guestTasks.push(newTask);
+          localStorage.setItem("guestTasks", JSON.stringify(guestTasks));
+          toast.success(`Nhiệm vụ ${newTaskTitle} đã được thêm! (Guest Mode)`);
+          handleNewTaskAdded();
+        } catch (error) {
+          console.error("Lỗi khi thêm nhiệm vụ:", error);
+          toast.error("Đã xảy ra lỗi khi thêm nhiệm vụ.");
+        }
       }
 
       setNewTaskTitle("");

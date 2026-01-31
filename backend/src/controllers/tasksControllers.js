@@ -1,6 +1,21 @@
 import Task from "../models/Task.js";
 
 export const getAllTasks = async (req, res) => {
+  // Nếu không có user (guest mode), trả về empty
+  if (!req.user) {
+    return res.status(200).json({
+      tasks: [],
+      pendingTasksCount: 0,
+      completedTasksCount: 0,
+      inProcessTasksCount: 0,
+      cancelledTasksCount: 0,
+      highPriorityCount: 0,
+      mediumPriorityCount: 0,
+      lowPriorityCount: 0,
+      isGuest: true
+    });
+  }
+
   const { filter = "today" } = req.query;
   const now = new Date();
   let startDate;
@@ -26,7 +41,11 @@ export const getAllTasks = async (req, res) => {
       break;
   }
 
-  const query = startDate ? { createdAt: { $gte: startDate } } : {};
+  // Thêm userId vào query
+  const query = { userId: req.user._id };
+  if (startDate) {
+    query.createdAt = { $gte: startDate };
+  }
 
   try {
     const result = await Task.aggregate([
@@ -99,6 +118,14 @@ export const getAllTasks = async (req, res) => {
 
 export const createTask = async (req, res) => {
   try {
+    // Guest mode không cho phép tạo task trên server
+    if (!req.user) {
+      return res.status(401).json({ 
+        message: "Vui lòng đăng nhập để lưu task",
+        isGuest: true
+      });
+    }
+
     const { title, description, status, priority, startDate, dueDate } =
       req.body;
     const task = new Task({
@@ -108,6 +135,7 @@ export const createTask = async (req, res) => {
       priority,
       startDate,
       dueDate,
+      userId: req.user._id // Thêm userId
     });
 
     const newTask = await task.save();
@@ -120,6 +148,13 @@ export const createTask = async (req, res) => {
 
 export const updateTask = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ 
+        message: "Vui lòng đăng nhập để cập nhật task",
+        isGuest: true
+      });
+    }
+
     const {
       title,
       description,
@@ -129,14 +164,16 @@ export const updateTask = async (req, res) => {
       dueDate,
       completedAt,
     } = req.body;
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
+    
+    // Chỉ cho phép cập nhật task của chính user đó
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
       { title, description, status, priority, startDate, dueDate, completedAt },
       { new: true }
     );
 
     if (!updatedTask) {
-      return res.status(404).json({ message: "Nhiệm vụ không tồn tại" });
+      return res.status(404).json({ message: "Nhiệm vụ không tồn tại hoặc bạn không có quyền" });
     }
 
     res.status(200).json(updatedTask);
@@ -148,10 +185,21 @@ export const updateTask = async (req, res) => {
 
 export const deleteTask = async (req, res) => {
   try {
-    const deletedTask = await Task.findByIdAndDelete(req.params.id);
+    if (!req.user) {
+      return res.status(401).json({ 
+        message: "Vui lòng đăng nhập để xóa task",
+        isGuest: true
+      });
+    }
+
+    // Chỉ cho phép xóa task của chính user đó
+    const deletedTask = await Task.findOneAndDelete({ 
+      _id: req.params.id, 
+      userId: req.user._id 
+    });
 
     if (!deletedTask) {
-      return res.status(404).json({ message: "Nhiệm vụ không tồn tại" });
+      return res.status(404).json({ message: "Nhiệm vụ không tồn tại hoặc bạn không có quyền" });
     }
 
     res.status(200).json({ message: "Xóa nhiệm vụ thành công" });

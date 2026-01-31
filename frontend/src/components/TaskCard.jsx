@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import api from "@/lib/axios";
 import { PriorityType } from "@/lib/data";
 import EditTaskDialog from "./EditTaskDialog";
+import { useAuth } from "@/context/AuthContext";
 
 const priorityConfig = {
   high: { label: PriorityType.high, class: "bg-destructive/10 text-destructive border-destructive/20" },
@@ -24,11 +25,31 @@ const priorityConfig = {
 };
 
 const TaskCard = ({ task, index, handleTaskChanged }) => {
+  const { user } = useAuth();
   const [openEditDialog, setOpenEditDialog] = useState(false);
+
+  // Helper để cập nhật guest tasks trong localStorage
+  const updateGuestTask = (taskId, updates) => {
+    const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
+    const updatedTasks = guestTasks.map(t => 
+      t._id === taskId ? { ...t, ...updates } : t
+    );
+    localStorage.setItem("guestTasks", JSON.stringify(updatedTasks));
+  };
+
+  const deleteGuestTask = (taskId) => {
+    const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
+    const updatedTasks = guestTasks.filter(t => t._id !== taskId);
+    localStorage.setItem("guestTasks", JSON.stringify(updatedTasks));
+  };
 
   const deleteTask = async (taskId) => {
     try {
-      await api.delete(`/tasks/${taskId}`);
+      if (user) {
+        await api.delete(`/tasks/${taskId}`);
+      } else {
+        deleteGuestTask(taskId);
+      }
       toast.success("Nhiệm vụ đã được xóa thành công!");
       handleTaskChanged();
     } catch (error) {
@@ -39,39 +60,37 @@ const TaskCard = ({ task, index, handleTaskChanged }) => {
 
   const toggleTaskInProgress = async () => {
     try {
+      let newStatus, updates, message;
+      
       if (task.status === "pending") {
-        const newStatus = "in-progress";
-        await api.put(`/tasks/${task._id}`, {
-          status: newStatus,
-          updateAt: new Date().toISOString(),
-          completedAt: null,
-        });
-        toast.info(`Nhiệm vụ ${task.title} đã bắt đầu!`);
+        newStatus = "in-progress";
+        updates = { status: newStatus, updatedAt: new Date().toISOString(), completedAt: null };
+        message = `Nhiệm vụ ${task.title} đã bắt đầu!`;
       } else if (task.status === "in-progress") {
-        const newStatus = "completed";
-        await api.put(`/tasks/${task._id}`, {
-          status: newStatus,
-          updateAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-        });
-        toast.success(`Nhiệm vụ ${task.title} đã hoàn thành!`);
+        newStatus = "completed";
+        updates = { status: newStatus, updatedAt: new Date().toISOString(), completedAt: new Date().toISOString() };
+        message = `Nhiệm vụ ${task.title} đã hoàn thành!`;
       } else if (task.status === "completed") {
-        const newStatus = "cancelled";
-        await api.put(`/tasks/${task._id}`, {
-          status: newStatus,
-          updateAt: new Date().toISOString(),
-          completedAt: null,
-        });
-        toast.error(`Nhiệm vụ ${task.title} đã bị hủy!`);
+        newStatus = "cancelled";
+        updates = { status: newStatus, updatedAt: new Date().toISOString(), completedAt: null };
+        message = `Nhiệm vụ ${task.title} đã bị hủy!`;
       } else {
-        const newStatus = "pending";
-        await api.put(`/tasks/${task._id}`, {
-          status: newStatus,
-          updateAt: new Date().toISOString(),
-          completedAt: null,
-        });
-        toast.warning(`Nhiệm vụ ${task.title} đã khôi phục lại!`);
+        newStatus = "pending";
+        updates = { status: newStatus, updatedAt: new Date().toISOString(), completedAt: null };
+        message = `Nhiệm vụ ${task.title} đã khôi phục lại!`;
       }
+
+      if (user) {
+        await api.put(`/tasks/${task._id}`, updates);
+      } else {
+        updateGuestTask(task._id, updates);
+      }
+
+      if (newStatus === "in-progress") toast.info(message);
+      else if (newStatus === "completed") toast.success(message);
+      else if (newStatus === "cancelled") toast.error(message);
+      else toast.warning(message);
+
       handleTaskChanged();
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái nhiệm vụ:", error);
