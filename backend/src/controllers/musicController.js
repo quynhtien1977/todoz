@@ -1,0 +1,212 @@
+import Music from "../models/Music.js";
+
+// Lấy tất cả nhạc (music hoặc sfx)
+export const getAllMusic = async (req, res) => {
+    try {
+        const { type, category } = req.query;
+        const filter = {};
+        
+        if (type) filter.type = type;
+        if (category) filter.category = category;
+        
+        const music = await Music.find(filter).sort({ createdAt: -1 });
+        res.status(200).json({ success: true, data: music });
+    } catch (error) {
+        console.error("Error fetching music:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Lấy một bài nhạc theo ID
+export const getMusicById = async (req, res) => {
+    try {
+        const music = await Music.findById(req.params.id);
+        if (!music) {
+            return res.status(404).json({ success: false, message: "Music not found" });
+        }
+        res.status(200).json({ success: true, data: music });
+    } catch (error) {
+        console.error("Error fetching music:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Thêm nhạc mới (local hoặc URL)
+export const addMusic = async (req, res) => {
+    try {
+        const { name, icon, category, type, sourceType, localPath, externalUrl } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ success: false, message: "Name is required" });
+        }
+        
+        // Extract YouTube ID nếu là URL YouTube
+        let youtubeId = null;
+        if (sourceType === 'url' && externalUrl) {
+            youtubeId = extractYoutubeId(externalUrl);
+        }
+        
+        const newMusic = new Music({
+            name,
+            icon: icon || "🎵",
+            category: category || "other",
+            type: type || "music",
+            sourceType: sourceType || "local",
+            localPath,
+            externalUrl,
+            youtubeId
+        });
+        
+        await newMusic.save();
+        res.status(201).json({ success: true, data: newMusic });
+    } catch (error) {
+        console.error("Error adding music:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Cập nhật nhạc
+export const updateMusic = async (req, res) => {
+    try {
+        const { name, icon, category, type, sourceType, localPath, externalUrl, isFavorite } = req.body;
+        
+        let youtubeId = null;
+        if (sourceType === 'url' && externalUrl) {
+            youtubeId = extractYoutubeId(externalUrl);
+        }
+        
+        const updatedMusic = await Music.findByIdAndUpdate(
+            req.params.id,
+            { name, icon, category, type, sourceType, localPath, externalUrl, youtubeId, isFavorite },
+            { new: true, runValidators: true }
+        );
+        
+        if (!updatedMusic) {
+            return res.status(404).json({ success: false, message: "Music not found" });
+        }
+        
+        res.status(200).json({ success: true, data: updatedMusic });
+    } catch (error) {
+        console.error("Error updating music:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Xóa nhạc
+export const deleteMusic = async (req, res) => {
+    try {
+        const deletedMusic = await Music.findByIdAndDelete(req.params.id);
+        
+        if (!deletedMusic) {
+            return res.status(404).json({ success: false, message: "Music not found" });
+        }
+        
+        res.status(200).json({ success: true, message: "Music deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting music:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Toggle favorite
+export const toggleFavorite = async (req, res) => {
+    try {
+        const music = await Music.findById(req.params.id);
+        
+        if (!music) {
+            return res.status(404).json({ success: false, message: "Music not found" });
+        }
+        
+        music.isFavorite = !music.isFavorite;
+        await music.save();
+        
+        res.status(200).json({ success: true, data: music });
+    } catch (error) {
+        console.error("Error toggling favorite:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Tăng play count
+export const incrementPlayCount = async (req, res) => {
+    try {
+        const music = await Music.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { playCount: 1 } },
+            { new: true }
+        );
+        
+        if (!music) {
+            return res.status(404).json({ success: false, message: "Music not found" });
+        }
+        
+        res.status(200).json({ success: true, data: music });
+    } catch (error) {
+        console.error("Error incrementing play count:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Seed initial music data từ local files
+export const seedMusic = async (req, res) => {
+    try {
+        // Kiểm tra nếu đã có data thì không seed nữa
+        const existingCount = await Music.countDocuments();
+        if (existingCount > 0) {
+            return res.status(200).json({ 
+                success: true, 
+                message: "Music data already exists", 
+                count: existingCount 
+            });
+        }
+        
+        const initialMusic = [
+            // Music tracks
+            { name: "Bass Den Vau", icon: "🎸", category: "energetic", type: "music", sourceType: "local", localPath: "/sounds/music/bass_den_vau.mp3" },
+            { name: "Basso Pem Solto", icon: "🎺", category: "energetic", type: "music", sourceType: "local", localPath: "/sounds/music/Basso_pem_solto.mp3" },
+            { name: "Dam Chim", icon: "🎵", category: "chill", type: "music", sourceType: "local", localPath: "/sounds/music/Dam_chiem.mp3" },
+            { name: "Eeyuh Back It Up", icon: "🔥", category: "energetic", type: "music", sourceType: "local", localPath: "/sounds/music/Eeyuh  Back It Up.mp3" },
+            { name: "Giat Giat Remix", icon: "💃", category: "energetic", type: "music", sourceType: "local", localPath: "/sounds/music/Giat_giat_remix.mp3" },
+            { name: "GNEDVT Remix", icon: "🎶", category: "energetic", type: "music", sourceType: "local", localPath: "/sounds/music/GNEDVT_remix.mp3" },
+            { name: "Love Nwantiti", icon: "❤️", category: "international", type: "music", sourceType: "local", localPath: "/sounds/music/love+nwantiti+(tiktok+remix)+by+dj+yo!+ft+ax'el+&+ckay+(slowed+++reverb).m4a" },
+            { name: "Monaluna", icon: "🌙", category: "chill", type: "music", sourceType: "local", localPath: "/sounds/music/Monaluna.mp3" },
+            { name: "Naruto Theme", icon: "🍥", category: "international", type: "music", sourceType: "local", localPath: "/sounds/music/naruto.mp3" },
+            { name: "Passo Bem Solto Slowed", icon: "🎧", category: "chill", type: "music", sourceType: "local", localPath: "/sounds/music/Passo_bem_solto_slowed.mp3" },
+            { name: "Spiderman Feng", icon: "🕷️", category: "international", type: "music", sourceType: "local", localPath: "/sounds/music/Spiderman_feng.mp3" },
+            { name: "Tek It", icon: "✨", category: "chill", type: "music", sourceType: "local", localPath: "/sounds/music/tek_it.mp3" },
+            { name: "Tung Cua Remix", icon: "🚀", category: "energetic", type: "music", sourceType: "local", localPath: "/sounds/music/Tung Cua_remix.mp3" },
+            
+            // SFX tracks
+            { name: "Alien Sound Effect", icon: "👽", category: "other", type: "sfx", sourceType: "local", localPath: "/sounds/sfx/witty-alien-brilliant-move-sound-effect.mp3" },
+            { name: "The Rock Eyebrow", icon: "🤨", category: "other", type: "sfx", sourceType: "local", localPath: "/sounds/sfx/y2mate.com - Vine Boom The Rock eyebrow raise sound effect.mp3" }
+        ];
+        
+        await Music.insertMany(initialMusic);
+        
+        res.status(201).json({ 
+            success: true, 
+            message: "Music data seeded successfully", 
+            count: initialMusic.length 
+        });
+    } catch (error) {
+        console.error("Error seeding music:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// Helper: Extract YouTube ID from URL
+function extractYoutubeId(url) {
+    if (!url) return null;
+    
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/,
+        /youtube\.com\/watch\?.*v=([^&\s]+)/
+    ];
+    
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    
+    return null;
+}

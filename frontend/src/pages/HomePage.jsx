@@ -7,6 +7,7 @@ import StatsAndFilters from "@/components/StatsAndFilters";
 import TaskList from "@/components/TaskList";
 import TaskListPagination from "@/components/TaskListPagination";
 import AIChatBox from "@/components/AIChatBox";
+import MusicPlayer from "@/components/MusicPlayer";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
@@ -183,7 +184,10 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* AI Chatbot */}
+      {/* Music Player - Bên trái */}
+      <MusicPlayer />
+
+      {/* AI Chatbot - Bên phải */}
       <AIChatBox tasks={taskBuffer} />
     </div>
   );

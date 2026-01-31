@@ -1,6 +1,7 @@
 import express from "express";
 import taskRoute from "./routes/taskRouters.js";
 import chatRoute from "./routes/chatRoutes.js";
+import musicRoute from "./routes/musicRoutes.js";
 import { connectDB } from "./config/db.js";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -22,6 +23,7 @@ if (process.env.NODE_ENV === "development") {
 }
 app.use("/api/tasks", taskRoute);
 app.use("/api/chat", chatRoute);
+app.use("/api/music", musicRoute);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../frontend/dist")));
