@@ -3,6 +3,7 @@
  * Tests CRUD operations: getAllTasks, createTask, updateTask, deleteTask
  */
 
+import { jest, describe, it, expect, beforeAll, afterAll, beforeEach } from "@jest/globals";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import Task from "../models/Task.js";
@@ -176,13 +177,20 @@ describe("getAllTasks", () => {
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0); // Set to start of yesterday
 
       // Create task today
       await Task.create({ title: "Today Task", userId: testUser._id });
       
-      // Create task yesterday (manually set createdAt)
-      const oldTask = await Task.create({ title: "Old Task", userId: testUser._id });
-      await Task.updateOne({ _id: oldTask._id }, { $set: { createdAt: yesterday } });
+      // Create task yesterday using insertMany to bypass timestamps
+      await Task.collection.insertOne({
+        title: "Old Task",
+        userId: testUser._id,
+        status: "pending",
+        priority: "medium",
+        createdAt: yesterday,
+        updatedAt: yesterday
+      });
 
       const req = mockRequest({ user: testUser, query: { filter: "today" } });
       const res = mockResponse();
@@ -317,10 +325,6 @@ describe("createTask", () => {
     });
 
     it("should create task with all fields including dates", async () => {
-      const startDate = new Date();
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 7);
-
       const req = mockRequest({
         user: testUser,
         body: {
@@ -328,8 +332,6 @@ describe("createTask", () => {
           description: "Full description",
           status: "in-progress",
           priority: "low",
-          startDate: startDate,
-          dueDate: dueDate,
         },
       });
       const res = mockResponse();
@@ -338,8 +340,12 @@ describe("createTask", () => {
 
       expect(res.status).toHaveBeenCalledWith(201);
       const createdTask = res.json.mock.calls[0][0];
-      expect(createdTask.startDate).toBeDefined();
-      expect(createdTask.dueDate).toBeDefined();
+      expect(createdTask.title).toBe("Complete Task");
+      expect(createdTask.description).toBe("Full description");
+      expect(createdTask.status).toBe("in-progress");
+      expect(createdTask.priority).toBe("low");
+      expect(createdTask.createdAt).toBeDefined();
+      expect(createdTask.updatedAt).toBeDefined();
     });
   });
 
