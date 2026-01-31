@@ -317,12 +317,27 @@ const AuthPage = () => {
     }
 
     setLoading(true);
+    setError("");
 
     try {
       await register(registerName, registerEmail, registerPassword, confirmPassword);
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.message || "Đăng ký thất bại");
+      const responseData = err.response?.data;
+      
+      // Xử lý field-level errors từ backend
+      if (responseData?.errors) {
+        const backendErrors = responseData.errors;
+        setFieldErrors((prev) => ({
+          ...prev,
+          registerName: backendErrors.name || "",
+          registerEmail: backendErrors.email || "",
+          registerPassword: backendErrors.password || "",
+          confirmPassword: backendErrors.confirmPassword || "",
+        }));
+      }
+      
+      setError(responseData?.message || "Đăng ký thất bại");
     } finally {
       setLoading(false);
     }

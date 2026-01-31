@@ -34,23 +34,81 @@ const sendTokenResponse = (user, statusCode, res) => {
         });
 };
 
+// ==================== VALIDATION HELPERS ====================
+const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
+const validatePassword = (password) => {
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    return password.length >= 6 && hasLetter && hasNumber;
+};
+
+const sanitizeInput = (str) => {
+    if (typeof str !== 'string') return '';
+    return str.trim();
+};
+
 // ==================== REGISTER ====================
 export const register = async (req, res) => {
     try {
         const { name, email, password, confirmPassword } = req.body;
         
-        if (password !== confirmPassword) {
+        // Sanitize inputs
+        const sanitizedName = sanitizeInput(name);
+        const sanitizedEmail = sanitizeInput(email).toLowerCase();
+        
+        // Collect all validation errors
+        const errors = {};
+        
+        // Validate name
+        if (!sanitizedName) {
+            errors.name = "Tên không được để trống";
+        } else if (sanitizedName.length < 2) {
+            errors.name = "Tên phải có ít nhất 2 ký tự";
+        } else if (sanitizedName.length > 50) {
+            errors.name = "Tên không được quá 50 ký tự";
+        }
+        
+        // Validate email
+        if (!sanitizedEmail) {
+            errors.email = "Email không được để trống";
+        } else if (!validateEmail(sanitizedEmail)) {
+            errors.email = "Email không hợp lệ";
+        }
+        
+        // Validate password
+        if (!password) {
+            errors.password = "Mật khẩu không được để trống";
+        } else if (!validatePassword(password)) {
+            errors.password = "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số";
+        }
+        
+        // Validate confirmPassword
+        if (!confirmPassword) {
+            errors.confirmPassword = "Vui lòng xác nhận mật khẩu";
+        } else if (password !== confirmPassword) {
+            errors.confirmPassword = "Mật khẩu xác nhận không khớp";
+        }
+        
+        // Return errors if any
+        if (Object.keys(errors).length > 0) {
             return res.status(400).json({
                 success: false,
-                message: "Mật khẩu xác nhận không khớp"
+                message: "Dữ liệu không hợp lệ",
+                errors
             });
         }
         
-        const existingUser = await User.findOne({ email });
+        // Check duplicate email
+        const existingUser = await User.findOne({ email: sanitizedEmail });
         if (existingUser) {
             return res.status(400).json({
                 success: false,
-                message: "Email đã được sử dụng"
+                message: "Email đã được sử dụng",
+                errors: { email: "Email đã được sử dụng" }
             });
         }
         
@@ -58,8 +116,8 @@ export const register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
         
         const user = await User.create({
-            name,
-            email,
+            name: sanitizedName,
+            email: sanitizedEmail,
             password: hashedPassword,
             authProvider: "local"
         });
@@ -69,10 +127,21 @@ export const register = async (req, res) => {
     } catch (error) {
         console.error("Register error:", error);
         if (error.name === "ValidationError") {
-            const messages = Object.values(error.errors).map(err => err.message);
+            const errors = {};
+            Object.keys(error.errors).forEach(key => {
+                errors[key] = error.errors[key].message;
+            });
             return res.status(400).json({
                 success: false,
-                message: messages.join(", ")
+                message: "Dữ liệu không hợp lệ",
+                errors
+            });
+        }
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: "Email đã được sử dụng",
+                errors: { email: "Email đã được sử dụng" }
             });
         }
         res.status(500).json({ success: false, message: "Lỗi hệ thống" });
