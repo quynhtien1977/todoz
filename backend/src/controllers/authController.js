@@ -333,6 +333,15 @@ export const mergeGuestTasks = async (req, res) => {
 export const oauthCallback = (req, res) => {
     const token = generateToken(req.user._id);
     
-    // Redirect về frontend với token
-    res.redirect(`${process.env.FRONTEND_URL}/oauth/callback?token=${token}`);
+    // Set cookie trước khi redirect (sameSite: lax để OAuth redirect hoạt động)
+    const cookieOptions = {
+        expires: new Date(Date.now() + (process.env.COOKIE_EXPIRES_IN || 7) * 24 * 60 * 60 * 1000),
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax"
+    };
+    res.cookie("token", token, cookieOptions);
+    
+    // Redirect về frontend - không đặt token trên URL (bảo mật hơn)
+    res.redirect(`${process.env.FRONTEND_URL}/oauth/callback?success=true`);
 };

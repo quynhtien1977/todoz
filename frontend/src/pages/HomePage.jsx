@@ -3,6 +3,7 @@ import DateTimeFilter from "@/components/DateTimeFilter";
 import PriorityFilter from "@/components/PriorityFilter";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import GuestBanner from "@/components/GuestBanner";
 import StatsAndFilters from "@/components/StatsAndFilters";
 import TaskList from "@/components/TaskList";
 import TaskListPagination from "@/components/TaskListPagination";
@@ -13,9 +14,10 @@ import { toast } from "sonner";
 import api from "@/lib/axios";
 import { visibleTaskLimit } from "@/lib/data";
 import { useAuth } from "@/context/AuthContext";
+import { guestStorage } from "@/lib/guestStorage";
 
 const HomePage = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isGuest } = useAuth();
   const [taskBuffer, setTaskBuffer] = useState([]);
   const [pendingTasks, setPendingTasks] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
@@ -40,16 +42,7 @@ const HomePage = () => {
     setLowPriority(tasks.filter(t => t.priority === "low").length);
   }, []);
 
-  // Lấy guest tasks từ localStorage
-  const getGuestTasks = useCallback(() => {
-    try {
-      return JSON.parse(localStorage.getItem("guestTasks") || "[]");
-    } catch {
-      return [];
-    }
-  }, []);
-
-  // Fetch tasks - từ server nếu đã đăng nhập, từ localStorage nếu guest
+  // Fetch tasks - từ server nếu đã đăng nhập, từ guestStorage nếu guest
   const fetchTasks = useCallback(async () => {
     if (authLoading) return;
 
@@ -65,17 +58,16 @@ const HomePage = () => {
         setHighPriority(res.data.highPriorityCount);
         setMediumPriority(res.data.mediumPriorityCount);
         setLowPriority(res.data.lowPriorityCount);
-        console.log("fetch: ", res.data);
       } catch {
         toast.error("Không thể tải danh sách công việc.");
       }
     } else {
-      // Guest mode - lấy từ localStorage
-      const guestTasks = getGuestTasks();
+      // Guest mode - lấy từ guestStorage
+      const guestTasks = guestStorage.getTasks();
       setTaskBuffer(guestTasks);
       calculateStats(guestTasks);
     }
-  }, [authLoading, user, dateQuery, getGuestTasks, calculateStats]);
+  }, [authLoading, user, dateQuery, calculateStats]);
 
   useEffect(() => {
     fetchTasks();
@@ -174,6 +166,9 @@ const HomePage = () => {
         <div className="w-full max-w-2xl p-6 mx-auto space-y-6">
           {/* Đầu trang */}
           <Header />
+
+          {/* Guest Banner - chỉ hiển thị khi chưa đăng nhập */}
+          {isGuest && <GuestBanner />}
 
           {/* Thêm công việc */}
           <AddTask handleNewTaskAdded={handleTaskChange} />

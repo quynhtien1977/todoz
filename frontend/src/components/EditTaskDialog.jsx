@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import api from "@/lib/axios";
 import { priorityOptions } from "@/lib/data";
 import { useAuth } from "@/context/AuthContext";
+import { guestStorage } from "@/lib/guestStorage";
 import {
   Popover,
   PopoverContent,
@@ -40,14 +41,8 @@ const EditTaskDialog = ({ task, open, setOpen, handleTaskChanged }) => {
   const [priority, setPriority] = useState(task.priority || "medium");
   const [openPriority, setOpenPriority] = useState(false);
 
-  // Helper để cập nhật guest task trong localStorage
-  const updateGuestTask = (taskId, updates) => {
-    const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
-    const updatedTasks = guestTasks.map((t) =>
-      t._id === taskId ? { ...t, ...updates } : t
-    );
-    localStorage.setItem("guestTasks", JSON.stringify(updatedTasks));
-  };
+  // Guest task helper dùng guestStorage
+  const updateGuestTask = (taskId, updates) => guestStorage.updateTask(taskId, updates);
 
   const handleSave = async () => {
     if (!title.trim()) {

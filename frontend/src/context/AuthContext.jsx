@@ -106,6 +106,7 @@ export const AuthProvider = ({ children }) => {
     loginWithGithub,
     loginWithFacebook,
     checkAuth,
+    mergeGuestTasksToServer,
   };
 
   return (

@@ -6,30 +6,31 @@ import { Loader2 } from "lucide-react";
 const OAuthCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { checkAuth } = useAuth();
+  const { checkAuth, mergeGuestTasksToServer } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
-      const token = searchParams.get("token");
       const error = searchParams.get("error");
+      const success = searchParams.get("success");
 
       if (error) {
         navigate(`/login?error=${error}`);
         return;
       }
 
-      if (token) {
-        // Token đã được set vào cookie bởi backend
-        // Chỉ cần verify và load user
+      if (success === "true") {
+        // Cookie đã được set bởi backend trước khi redirect
         await checkAuth();
+        // Merge guest tasks nếu người dùng có data từ trước khi đăng nhập OAuth
+        await mergeGuestTasksToServer();
         navigate("/");
       } else {
-        navigate("/login?error=no_token");
+        navigate("/login?error=oauth_failed");
       }
     };
 
     handleCallback();
-  }, [searchParams, navigate, checkAuth]);
+  }, [searchParams, navigate, checkAuth, mergeGuestTasksToServer]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">

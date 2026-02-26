@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import api from "@/lib/axios";
 import { priorityOptions } from "@/lib/data";
 import { useAuth } from "@/context/AuthContext";
+import { guestStorage } from "@/lib/guestStorage";
 import {
   Popover,
   PopoverContent,
@@ -50,19 +51,13 @@ const AddTask = ({ handleNewTaskAdded }) => {
           toast.error("Đã xảy ra lỗi khi thêm nhiệm vụ.");
         }
       } else {
-        // Guest mode - lưu vào localStorage
+        // Guest mode - lưu vào guestStorage
         try {
-          const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
-          const newTask = {
-            _id: `guest_${Date.now()}`,
+          guestStorage.addTask({
             title: newTaskTitle,
             description: newTaskDescription,
             priority: newTaskPriority,
-            status: "pending",
-            createdAt: new Date().toISOString(),
-          };
-          guestTasks.push(newTask);
-          localStorage.setItem("guestTasks", JSON.stringify(guestTasks));
+          });
           toast.success(`Nhiệm vụ ${newTaskTitle} đã được thêm! (Guest Mode)`);
           handleNewTaskAdded();
         } catch (error) {

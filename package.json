@@ -6,7 +6,6 @@
   "scripts": {
     "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
     "start": "npm run start --prefix backend"
-    
   },
   "repository": {
     "type": "git",
@@ -19,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/quynhtien1977/Zair0u_todoZ/issues"
   },
-  "homepage": "https://github.com/quynhtien1977/Zair0u_todoZ#readme"
+  "homepage": "https://github.com/quynhtien1977/Zair0u_todoZ#readme",
+  "devDependencies": {
+    "shadcn": "^3.8.5"
+  }
 }

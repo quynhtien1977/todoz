@@ -17,6 +17,7 @@ import api from "@/lib/axios";
 import { PriorityType } from "@/lib/data";
 import EditTaskDialog from "./EditTaskDialog";
 import { useAuth } from "@/context/AuthContext";
+import { guestStorage } from "@/lib/guestStorage";
 
 const priorityConfig = {
   high: { label: PriorityType.high, class: "bg-destructive/10 text-destructive border-destructive/20" },
@@ -28,20 +29,9 @@ const TaskCard = ({ task, index, handleTaskChanged }) => {
   const { user } = useAuth();
   const [openEditDialog, setOpenEditDialog] = useState(false);
 
-  // Helper để cập nhật guest tasks trong localStorage
-  const updateGuestTask = (taskId, updates) => {
-    const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
-    const updatedTasks = guestTasks.map(t => 
-      t._id === taskId ? { ...t, ...updates } : t
-    );
-    localStorage.setItem("guestTasks", JSON.stringify(updatedTasks));
-  };
-
-  const deleteGuestTask = (taskId) => {
-    const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
-    const updatedTasks = guestTasks.filter(t => t._id !== taskId);
-    localStorage.setItem("guestTasks", JSON.stringify(updatedTasks));
-  };
+  // Guest task helpers dùng guestStorage
+  const updateGuestTask = (taskId, updates) => guestStorage.updateTask(taskId, updates);
+  const deleteGuestTask = (taskId) => guestStorage.deleteTask(taskId);
 
   const deleteTask = async (taskId) => {
     try {
