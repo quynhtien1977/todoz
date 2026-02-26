@@ -34,12 +34,15 @@ const Header = () => {
                 <img 
                   src={user.avatar} 
                   alt={user.name} 
-                  className="w-8 h-8 rounded-full"
+                  className="w-8 h-8 rounded-full object-cover"
+                  onError={(e) => { e.target.onerror = null; e.target.src = "/default_avatar.jpg"; }}
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <User className="w-4 h-4 text-primary" />
-                </div>
+                <img 
+                  src="/default_avatar.jpg" 
+                  alt={user.name} 
+                  className="w-8 h-8 rounded-full object-cover"
+                />
               )}
               <span className="text-foreground hidden sm:inline">{user.name}</span>
             </div>

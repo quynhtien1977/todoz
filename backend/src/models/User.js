@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema({
     },
     avatar: {
         type: String,
-        default: null
+        default: "/default_avatar.jpg"
     },
     
     // OAuth providers
