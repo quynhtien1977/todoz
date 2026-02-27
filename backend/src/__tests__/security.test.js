@@ -106,7 +106,7 @@ describe('Account Lockout', () => {
             .send({ email: 'test@example.com', password: 'wrongpass1' });
 
         expect(res.status).toBe(401);
-        expect(res.body.attemptsLeft).toBe(4); // 5 max - 1 attempt = 4 left
+        expect(res.body.attemptsLeft).toBe(9); // 10 max - 1 attempt = 9 left
     });
 
     test('should increment attempts on each failed login', async () => {
@@ -120,15 +120,15 @@ describe('Account Lockout', () => {
         expect(user.loginAttempts).toBe(3);
     });
 
-    test('should lock account after 5 failed attempts', async () => {
-        // 5 failed attempts
-        for (let i = 0; i < 5; i++) {
+    test('should lock account after 10 failed attempts', async () => {
+        // 10 failed attempts
+        for (let i = 0; i < 10; i++) {
             await request(app)
                 .post('/api/auth/login')
                 .send({ email: 'test@example.com', password: 'wrongpass1' });
         }
 
-        // 6th attempt should be locked
+        // 11th attempt should be locked
         const res = await request(app)
             .post('/api/auth/login')
             .send({ email: 'test@example.com', password: 'password123' });
@@ -140,7 +140,7 @@ describe('Account Lockout', () => {
 
     test('should return 423 with lockUntil when account is locked', async () => {
         // Lock the account
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 10; i++) {
             await request(app)
                 .post('/api/auth/login')
                 .send({ email: 'test@example.com', password: 'wrongpass1' });
@@ -533,8 +533,8 @@ describe('Security Audit Logging', () => {
         await createTestUser();
         const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-        // 5 failed attempts to trigger lockout
-        for (let i = 0; i < 5; i++) {
+        // 10 failed attempts to trigger lockout
+        for (let i = 0; i < 10; i++) {
             await request(app)
                 .post('/api/auth/login')
                 .send({ email: 'test@example.com', password: 'wrongpass1' });
@@ -599,7 +599,7 @@ describe('Combined Security Flow', () => {
         await createTestUser();
 
         // Lock the account
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 10; i++) {
             await request(app)
                 .post('/api/auth/login')
                 .send({ email: 'test@example.com', password: 'wrong1' });

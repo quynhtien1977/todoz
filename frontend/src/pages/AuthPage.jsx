@@ -597,6 +597,14 @@ const AuthPage = () => {
                       message="Mật khẩu hợp lệ"
                     />
                   </div>
+                  <div className="flex justify-end">
+                    <Link
+                      to="/forgot-password"
+                      className="text-sm text-violet-600 hover:text-violet-700 hover:underline transition-colors"
+                    >
+                      Quên mật khẩu?
+                    </Link>
+                  </div>
                   <Button
                     type="submit"
                     className="w-full h-12 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-xl shadow-lg shadow-violet-500/25 transition-all duration-300 hover:shadow-violet-500/40 hover:scale-[1.02] cursor-pointer"
