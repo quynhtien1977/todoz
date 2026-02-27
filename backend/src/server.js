@@ -13,6 +13,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
 import hpp from "hpp";
+import { sanitizeBody } from "./middleware/xssSanitizer.js";
 
 dotenv.config();
 
@@ -95,10 +96,13 @@ app.use(mongoSanitize());
 // 6. HPP - Chống HTTP Parameter Pollution
 app.use(hpp());
 
-// 7. Passport
+// 7. XSS Sanitizer - Lọc HTML/script tags từ user input
+app.use(sanitizeBody);
+
+// 8. Passport
 app.use(passport.initialize());
 
-// 8. CORS - Hỗ trợ cả development và production (deploy riêng frontend/backend)
+// 9. CORS - Hỗ trợ cả development và production (deploy riêng frontend/backend)
 const corsOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
 app.use(cors({ 
   origin: corsOrigin,
@@ -134,7 +138,7 @@ const validateEnv = () => {
     process.exit(1);
   }
   if (process.env.NODE_ENV === "production" && !process.env.FRONTEND_URL) {
-    console.warn("⚠️  FRONTEND_URL not set - OAuth redirects may fail");
+    console.warn("  FRONTEND_URL not set - OAuth redirects may fail");
   }
 };
 

@@ -2,6 +2,11 @@ import User from "../models/User.js";
 import Task from "../models/Task.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { logSecurityEvent } from "../utils/securityLogger.js";
+
+// ==================== CONSTANTS ====================
+const MAX_LOGIN_ATTEMPTS = 10; // Số lần đăng nhập sai tối đa trước khi khóa tài khoản
+const LOCK_TIME = 5 * 60 * 1000; // 5 phút
 
 // Hàm tạo JWT token
 const generateToken = (userId) => {
@@ -127,8 +132,9 @@ export const register = async (req, res) => {
         
         sendTokenResponse(user, 201, res);
         
+        logSecurityEvent('REGISTER', { email: sanitizedEmail, userId: user._id }, req);
+        
     } catch (error) {
-        console.error("Register error:", error);
         if (error.name === "ValidationError") {
             const errors = {};
             Object.keys(error.errors).forEach(key => {
@@ -163,13 +169,33 @@ export const login = async (req, res) => {
             });
         }
         
-        const user = await User.findOne({ email }).select("+password");
+        const user = await User.findOne({ email }).select("+password +loginAttempts +lockUntil");
         
         if (!user) {
+            logSecurityEvent('LOGIN_FAILED', { email, reason: 'user_not_found' }, req);
             return res.status(401).json({
                 success: false,
                 message: "Email hoặc mật khẩu không đúng"
             });
+        }
+        
+        // Check account lockout
+        if (user.lockUntil && user.lockUntil > Date.now()) {
+            const remainingMs = user.lockUntil - Date.now();
+            const remainingMin = Math.ceil(remainingMs / 60000);
+            logSecurityEvent('LOGIN_FAILED', { email, reason: 'account_locked' }, req);
+            return res.status(423).json({
+                success: false,
+                message: `Tài khoản đã bị khóa tạm thời. Vui lòng thử lại sau ${remainingMin} phút.`,
+                lockUntil: user.lockUntil,
+                remainingMinutes: remainingMin
+            });
+        }
+        
+        // Reset lock nếu đã hết hạn
+        if (user.lockUntil && user.lockUntil <= Date.now()) {
+            user.loginAttempts = 0;
+            user.lockUntil = null;
         }
         
         // Check nếu user đăng ký bằng OAuth
@@ -182,22 +208,59 @@ export const login = async (req, res) => {
         
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            // Increment login attempts
+            user.loginAttempts = (user.loginAttempts || 0) + 1;
+            
+            if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+                user.lockUntil = new Date(Date.now() + LOCK_TIME);
+                await user.save({ validateBeforeSave: false });
+                
+                const remainingMin = Math.ceil(LOCK_TIME / 60000);
+                logSecurityEvent('ACCOUNT_LOCKED', { 
+                    email, 
+                    userId: user._id,
+                    attempts: user.loginAttempts 
+                }, req);
+                
+                return res.status(423).json({
+                    success: false,
+                    message: `Quá nhiều lần đăng nhập sai. Tài khoản bị khóa ${remainingMin} phút.`,
+                    lockUntil: user.lockUntil,
+                    remainingMinutes: remainingMin
+                });
+            }
+            
+            await user.save({ validateBeforeSave: false });
+            
+            const attemptsLeft = MAX_LOGIN_ATTEMPTS - user.loginAttempts;
+            logSecurityEvent('LOGIN_FAILED', { 
+                email, 
+                reason: 'wrong_password', 
+                attemptsLeft 
+            }, req);
+            
             return res.status(401).json({
                 success: false,
-                message: "Email hoặc mật khẩu không đúng"
+                message: "Email hoặc mật khẩu không đúng",
+                attemptsLeft
             });
         }
         
         if (!user.isActive) {
+            logSecurityEvent('LOGIN_FAILED', { email, reason: 'inactive' }, req);
             return res.status(401).json({
                 success: false,
                 message: "Tài khoản đã bị vô hiệu hóa"
             });
         }
         
+        // Login thành công - reset lockout
+        user.loginAttempts = 0;
+        user.lockUntil = null;
         user.lastLogin = new Date();
         await user.save({ validateBeforeSave: false });
         
+        logSecurityEvent('LOGIN_SUCCESS', { email, userId: user._id }, req);
         sendTokenResponse(user, 200, res);
         
     } catch (error) {
@@ -208,6 +271,7 @@ export const login = async (req, res) => {
 
 // ==================== LOGOUT ====================
 export const logout = async (req, res) => {
+    logSecurityEvent('LOGOUT', {}, req);
     res.cookie("token", "none", {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true
@@ -254,6 +318,14 @@ export const changePassword = async (req, res) => {
             });
         }
         
+        // Validate new password strength
+        if (!newPassword || !validatePassword(newPassword)) {
+            return res.status(400).json({
+                success: false,
+                message: "Mật khẩu mới phải có ít nhất 6 ký tự, bao gồm chữ và số"
+            });
+        }
+        
         const user = await User.findById(req.user.id).select("+password");
         
         // OAuth users không có password
@@ -272,10 +344,20 @@ export const changePassword = async (req, res) => {
             });
         }
         
+        // Kiểm tra mật khẩu mới khác mật khẩu cũ
+        const isSamePassword = await bcrypt.compare(newPassword, user.password);
+        if (isSamePassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Mật khẩu mới phải khác mật khẩu hiện tại"
+            });
+        }
+        
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
         await user.save();
         
+        logSecurityEvent('PASSWORD_CHANGED', { userId: user._id, email: user.email }, req);
         res.status(200).json({ success: true, message: "Đổi mật khẩu thành công" });
     } catch (error) {
         res.status(500).json({ success: false, message: "Lỗi hệ thống" });
