@@ -3,29 +3,51 @@
  * 
  * Sử dụng nodemailer với SMTP
  * Hỗ trợ: Gmail, Mailtrap, hoặc bất kỳ SMTP provider nào
+ * Dev mode: Tự động tạo Ethereal test account (xem email tại ethereal.email)
  */
 
 import nodemailer from "nodemailer";
 
+let cachedTransporter = null;
+
 /**
  * Tạo transporter dựa trên environment
  */
-const createTransporter = () => {
-    // Development: dùng Ethereal (fake SMTP) nếu không có config
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
-        console.warn("[EMAIL] SMTP chưa được cấu hình. Dùng console log thay thế.");
-        return null;
+const createTransporter = async () => {
+    if (cachedTransporter) return cachedTransporter;
+
+    // Production / có config SMTP
+    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+        cachedTransporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: parseInt(process.env.SMTP_PORT) || 587,
+            secure: parseInt(process.env.SMTP_PORT) === 465,
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
+        return cachedTransporter;
     }
 
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        secure: parseInt(process.env.SMTP_PORT) === 465, // true cho port 465
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-    });
+    // Development: tự động tạo Ethereal test account
+    try {
+        const testAccount = await nodemailer.createTestAccount();
+        cachedTransporter = nodemailer.createTransport({
+            host: "smtp.ethereal.email",
+            port: 587,
+            secure: false,
+            auth: {
+                user: testAccount.user,
+                pass: testAccount.pass,
+            },
+        });
+        console.log("[EMAIL] Ethereal test account created:", testAccount.user);
+        return cachedTransporter;
+    } catch (error) {
+        console.warn("[EMAIL] Không thể tạo Ethereal account:", error.message);
+        return null;
+    }
 };
 
 /**
@@ -36,7 +58,7 @@ const createTransporter = () => {
  * @returns {Promise<boolean>} true nếu gửi thành công
  */
 export const sendOTPEmail = async (to, otp, name = "bạn") => {
-    const transporter = createTransporter();
+    const transporter = await createTransporter();
 
     const subject = `[TodoApp] Mã OTP đặt lại mật khẩu: ${otp}`;
 
@@ -62,7 +84,7 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
     <body>
         <div class="container">
             <div class="header">
-                <h1>🔐 Đặt lại mật khẩu</h1>
+                <h1> Đặt lại mật khẩu</h1>
                 <p>TodoApp - Quản lý công việc</p>
             </div>
             <div class="body">
@@ -76,7 +98,7 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
                 <p class="info">Mã này sẽ hết hạn sau <strong>10 phút</strong>.</p>
                 
                 <div class="warning">
-                    ⚠️ Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn.
+                     Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn.
                 </div>
             </div>
             <div class="footer">
@@ -99,7 +121,7 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
 
     try {
         const info = await transporter.sendMail({
-            from: `"TodoApp" <${process.env.FROM_EMAIL || process.env.SMTP_USER}>`,
+            from: `"TodoApp" <${process.env.FROM_EMAIL || process.env.SMTP_USER || "noreply@todoapp.dev"}>`,
             to,
             subject,
             text,
@@ -107,6 +129,13 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
         });
 
         console.log(`[EMAIL] Sent to ${to}, messageId: ${info.messageId}`);
+
+        // Ethereal: hiện link xem email
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        if (previewUrl) {
+            console.log(`[EMAIL] 👀 Preview URL: ${previewUrl}`);
+        }
+
         return true;
     } catch (error) {
         console.error(`[EMAIL] Error sending to ${to}:`, error.message);

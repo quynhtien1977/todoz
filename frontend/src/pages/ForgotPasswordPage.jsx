@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,41 @@ import {
   AlertCircle,
   ShieldCheck,
   KeyRound,
+  Timer,
 } from "lucide-react";
 import api from "../lib/axios";
+
+const COOLDOWN_SECONDS = 60;
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const timerRef = useRef(null);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const startCooldown = useCallback(() => {
+    setCooldown(COOLDOWN_SECONDS);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
   const validateEmail = (email) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -41,6 +68,7 @@ const ForgotPasswordPage = () => {
     try {
       await api.post("/auth/forgot-password", { email: email.trim().toLowerCase() });
       setSent(true);
+      startCooldown();
     } catch (err) {
       setError(err.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại");
     } finally {
@@ -145,12 +173,25 @@ const ForgotPasswordPage = () => {
                 </Link>
                 <button
                   onClick={() => {
+                    if (cooldown > 0) return;
                     setSent(false);
                     setError("");
                   }}
-                  className="text-sm text-violet-600 hover:text-violet-700 hover:underline transition-colors cursor-pointer"
+                  disabled={cooldown > 0}
+                  className={`text-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full ${
+                    cooldown > 0
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "text-violet-600 hover:text-violet-700 hover:underline"
+                  }`}
                 >
-                  Gửi lại mã OTP
+                  {cooldown > 0 ? (
+                    <>
+                      <Timer className="h-3.5 w-3.5" />
+                      Gửi lại sau {cooldown}s
+                    </>
+                  ) : (
+                    "Gửi lại mã OTP"
+                  )}
                 </button>
               </div>
             </div>
