@@ -527,6 +527,7 @@ const AuthPage = () => {
                       Email
                     </Label>
                     <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
                       <Input
                         id="login-email"
                         type="email"
@@ -534,7 +535,7 @@ const AuthPage = () => {
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                         onBlur={() => handleBlur("loginEmail")}
-                        className={`h-12 bg-white border-gray-200 rounded-xl focus:border-violet-400 focus:ring-violet-400/20 ${
+                        className={`h-12 pl-10 bg-white border-gray-200 rounded-xl focus:border-violet-400 focus:ring-violet-400/20 ${
                           touched.loginEmail && fieldErrors.loginEmail
                             ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                             : ""
@@ -560,6 +561,7 @@ const AuthPage = () => {
                       Mật khẩu
                     </Label>
                     <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
                       <Input
                         id="login-password"
                         type={showPassword ? "text" : "password"}
@@ -567,7 +569,7 @@ const AuthPage = () => {
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         onBlur={() => handleBlur("loginPassword")}
-                        className={`h-12 bg-white border-gray-200 rounded-xl focus:border-violet-400 focus:ring-violet-400/20 pr-12 ${
+                        className={`h-12 pl-10 bg-white border-gray-200 rounded-xl focus:border-violet-400 focus:ring-violet-400/20 pr-12 ${
                           touched.loginPassword && fieldErrors.loginPassword
                             ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                             : ""
@@ -697,6 +699,7 @@ const AuthPage = () => {
                       Tên hiển thị
                     </Label>
                     <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
                       <Input
                         id="register-name"
                         type="text"
@@ -704,7 +707,7 @@ const AuthPage = () => {
                         value={registerName}
                         onChange={(e) => setRegisterName(e.target.value)}
                         onBlur={() => handleBlur("registerName")}
-                        className={`h-11 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 ${
+                        className={`h-11 pl-10 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 ${
                           touched.registerName && fieldErrors.registerName
                             ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                             : ""
@@ -734,6 +737,7 @@ const AuthPage = () => {
                       Email
                     </Label>
                     <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
                       <Input
                         id="register-email"
                         type="email"
@@ -741,7 +745,7 @@ const AuthPage = () => {
                         value={registerEmail}
                         onChange={(e) => setRegisterEmail(e.target.value)}
                         onBlur={() => handleBlur("registerEmail")}
-                        className={`h-11 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 ${
+                        className={`h-11 pl-10 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 ${
                           touched.registerEmail && fieldErrors.registerEmail
                             ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                             : ""
@@ -771,6 +775,7 @@ const AuthPage = () => {
                       Mật khẩu
                     </Label>
                     <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
                       <Input
                         id="register-password"
                         type={showPassword ? "text" : "password"}
@@ -778,7 +783,7 @@ const AuthPage = () => {
                         value={registerPassword}
                         onChange={(e) => setRegisterPassword(e.target.value)}
                         onBlur={() => handleBlur("registerPassword")}
-                        className={`h-11 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 pr-12 ${
+                        className={`h-11 pl-10 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 pr-12 ${
                           touched.registerPassword &&
                           fieldErrors.registerPassword
                             ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
@@ -812,6 +817,7 @@ const AuthPage = () => {
                       Xác nhận mật khẩu
                     </Label>
                     <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
                       <Input
                         id="confirm-password"
                         type={showConfirmPassword ? "text" : "password"}
@@ -819,7 +825,7 @@ const AuthPage = () => {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         onBlur={() => handleBlur("confirmPassword")}
-                        className={`h-11 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 pr-12 ${
+                        className={`h-11 pl-10 bg-white border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-emerald-400/20 pr-12 ${
                           touched.confirmPassword &&
                           fieldErrors.confirmPassword
                             ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
