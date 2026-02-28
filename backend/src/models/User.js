@@ -27,6 +27,52 @@ const userSchema = new mongoose.Schema({
         default: "/default_avatar.jpg"
     },
     
+    // Account tier
+    role: {
+        type: String,
+        enum: ["free", "pro", "admin"],
+        default: "free"
+    },
+    
+    // Profile fields
+    bio: {
+        type: String,
+        maxlength: [200, "Bio không được quá 200 ký tự"],
+        default: ""
+    },
+    phone: {
+        type: String,
+        default: ""
+    },
+    location: {
+        type: String,
+        maxlength: [100, "Địa chỉ không được quá 100 ký tự"],
+        default: ""
+    },
+    
+    // User preferences
+    preferences: {
+        theme: {
+            type: String,
+            enum: ["light", "dark", "system"],
+            default: "system"
+        },
+        language: {
+            type: String,
+            enum: ["vi", "en"],
+            default: "vi"
+        },
+        defaultPriority: {
+            type: String,
+            enum: ["low", "medium", "high"],
+            default: "medium"
+        },
+        notifications: {
+            email: { type: Boolean, default: true },
+            push: { type: Boolean, default: true }
+        }
+    },
+    
     // OAuth providers
     authProvider: {
         type: String,
@@ -74,8 +120,9 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Index cho OAuth lookup
+// Indexes
 userSchema.index({ authProvider: 1, providerId: 1 });
+userSchema.index({ role: 1 });
 
 const User = mongoose.model("User", userSchema);
 export default User;

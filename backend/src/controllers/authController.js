@@ -285,7 +285,31 @@ export const logout = async (req, res) => {
 export const getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
-        res.status(200).json({ success: true, user });
+        const taskStats = await Task.aggregate([
+            { $match: { userId: user._id } },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+                    pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } }
+                }
+            }
+        ]);
+
+        const stats = taskStats[0] || { total: 0, completed: 0, pending: 0 };
+        const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
+        res.status(200).json({
+            success: true,
+            user,
+            stats: {
+                totalTasks: stats.total,
+                completedTasks: stats.completed,
+                pendingTasks: stats.pending,
+                completionRate
+            }
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: "Lỗi hệ thống" });
     }
@@ -294,16 +318,112 @@ export const getProfile = async (req, res) => {
 // ==================== UPDATE PROFILE ====================
 export const updateProfile = async (req, res) => {
     try {
-        const { name, avatar } = req.body;
-        
+        const { name, avatar, bio, phone, location } = req.body;
+
+        // Build update object — only include fields that were sent
+        const updateFields = {};
+        if (name !== undefined) updateFields.name = sanitizeInput(name);
+        if (avatar !== undefined) updateFields.avatar = avatar;
+        if (bio !== undefined) updateFields.bio = sanitizeInput(bio);
+        if (phone !== undefined) updateFields.phone = sanitizeInput(phone);
+        if (location !== undefined) updateFields.location = sanitizeInput(location);
+
+        // Validate name if provided
+        if (updateFields.name !== undefined) {
+            if (updateFields.name.length < 2) {
+                return res.status(400).json({ success: false, message: "Tên phải có ít nhất 2 ký tự" });
+            }
+            if (updateFields.name.length > 50) {
+                return res.status(400).json({ success: false, message: "Tên không được quá 50 ký tự" });
+            }
+        }
+
+        // Validate bio length
+        if (updateFields.bio !== undefined && updateFields.bio.length > 200) {
+            return res.status(400).json({ success: false, message: "Bio không được quá 200 ký tự" });
+        }
+
         const user = await User.findByIdAndUpdate(
             req.user.id,
-            { name, avatar },
+            updateFields,
             { new: true, runValidators: true }
         );
         
         res.status(200).json({ success: true, user });
     } catch (error) {
+        res.status(500).json({ success: false, message: "Lỗi hệ thống" });
+    }
+};
+
+// ==================== UPDATE PREFERENCES ====================
+export const updatePreferences = async (req, res) => {
+    try {
+        const { theme, language, defaultPriority, notifications } = req.body;
+
+        const updateFields = {};
+        if (theme !== undefined) updateFields["preferences.theme"] = theme;
+        if (language !== undefined) updateFields["preferences.language"] = language;
+        if (defaultPriority !== undefined) updateFields["preferences.defaultPriority"] = defaultPriority;
+        if (notifications !== undefined) {
+            if (notifications.email !== undefined) updateFields["preferences.notifications.email"] = notifications.email;
+            if (notifications.push !== undefined) updateFields["preferences.notifications.push"] = notifications.push;
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: updateFields },
+            { new: true, runValidators: true }
+        );
+
+        res.status(200).json({ success: true, user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Lỗi hệ thống" });
+    }
+};
+
+// ==================== DELETE ACCOUNT ====================
+export const deleteAccount = async (req, res) => {
+    try {
+        const { password } = req.body;
+        const user = await User.findById(req.user.id).select("+password");
+
+        // For local auth users, require password confirmation
+        if (user.authProvider === "local") {
+            if (!password) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Vui lòng nhập mật khẩu để xác nhận xóa tài khoản"
+                });
+            }
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Mật khẩu không đúng"
+                });
+            }
+        }
+
+        // Delete all user tasks
+        await Task.deleteMany({ userId: user._id });
+
+        // Delete user
+        await User.findByIdAndDelete(user._id);
+
+        logSecurityEvent('ACCOUNT_DELETED', { userId: user._id, email: user.email }, req);
+
+        // Clear cookie
+        res.cookie("token", "none", {
+            expires: new Date(Date.now() + 10 * 1000),
+            httpOnly: true
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Tài khoản đã được xóa thành công"
+        });
+    } catch (error) {
+        console.error("Delete account error:", error);
         res.status(500).json({ success: false, message: "Lỗi hệ thống" });
     }
 };

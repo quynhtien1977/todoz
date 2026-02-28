@@ -60,7 +60,7 @@ const createTransporter = async () => {
 export const sendOTPEmail = async (to, otp, name = "bạn") => {
     const transporter = await createTransporter();
 
-    const subject = `[TodoApp] Mã OTP đặt lại mật khẩu: ${otp}`;
+    const subject = `[TodoZ] Mã OTP đặt lại mật khẩu: ${otp}`;
 
     const html = `
     <!DOCTYPE html>
@@ -85,11 +85,11 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
         <div class="container">
             <div class="header">
                 <h1> Đặt lại mật khẩu</h1>
-                <p>TodoApp - Quản lý công việc</p>
+                <p>TodoZ - Quản lý công việc</p>
             </div>
             <div class="body">
                 <p style="color: #334155; font-size: 16px;">Xin chào <strong>${name}</strong>,</p>
-                <p class="info">Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản TodoApp. Vui lòng sử dụng mã OTP bên dưới:</p>
+                <p class="info">Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản TodoZ. Vui lòng sử dụng mã OTP bên dưới:</p>
                 
                 <div class="otp-box">
                     <div class="otp-code">${otp}</div>
@@ -102,7 +102,7 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
                 </div>
             </div>
             <div class="footer">
-                <p>© ${new Date().getFullYear()} TodoApp. Email này được gửi tự động.</p>
+                <p>© ${new Date().getFullYear()} TodoZ. Email này được gửi tự động.</p>
             </div>
         </div>
     </body>
@@ -121,7 +121,7 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
 
     try {
         const info = await transporter.sendMail({
-            from: `"TodoApp" <${process.env.FROM_EMAIL || process.env.SMTP_USER || "noreply@todoapp.dev"}>`,
+            from: `"TodoZ" <${process.env.FROM_EMAIL || process.env.SMTP_USER || "noreply@todoz.dev"}>`,
             to,
             subject,
             text,

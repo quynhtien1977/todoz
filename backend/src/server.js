@@ -3,6 +3,7 @@ import taskRoute from "./routes/taskRouters.js";
 import chatRoute from "./routes/chatRoutes.js";
 import musicRoute from "./routes/musicRoutes.js";
 import authRoute from "./routes/authRoutes.js";
+import uploadRoute from "./routes/uploadRoutes.js";
 import { connectDB } from "./config/db.js";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -113,10 +114,14 @@ app.use(cors({
 
 // ==================== ROUTES ====================
 
+// Serve uploaded files (avatars, etc.)
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 // Apply auth rate limiter only to login/register (NOT to verify, profile, OAuth callbacks)
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth", authRoute);
+app.use("/api/upload", uploadRoute);
 app.use("/api/tasks", taskRoute);
 app.use("/api/chat", chatLimiter, chatRoute);
 app.use("/api/music", musicRoute);

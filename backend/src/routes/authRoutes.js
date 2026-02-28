@@ -7,7 +7,9 @@ import {
     logout,
     getProfile,
     updateProfile,
+    updatePreferences,
     changePassword,
+    deleteAccount,
     verifyToken,
     mergeGuestTasks,
     oauthCallback,
@@ -47,7 +49,9 @@ router.post("/reset-password", resetPassword);
 // ==================== PROTECTED ROUTES ====================
 router.get("/profile", protect, getProfile);
 router.put("/profile", protect, updateProfile);
+router.put("/preferences", protect, updatePreferences);
 router.put("/change-password", protect, changePassword);
+router.delete("/account", protect, deleteAccount);
 router.get("/verify", protect, verifyToken);
 router.post("/merge-tasks", protect, mergeGuestTasks);
 

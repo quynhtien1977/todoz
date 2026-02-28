@@ -6,6 +6,7 @@ import AuthPage from './pages/AuthPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import OAuthCallback from './pages/OAuthCallback';
+import ProfilePage from './pages/ProfilePage';
 import NotFound from './pages/NotFound';
 
 
@@ -22,6 +23,7 @@ function App() {
           <Route path='/forgot-password' element={<ForgotPasswordPage />} />
           <Route path='/reset-password' element={<ResetPasswordPage />} />
           <Route path='/oauth/callback' element={<OAuthCallback />} />
+          <Route path='/profile' element={<ProfilePage />} />
           <Route path='*' element={<NotFound />} />
         </Routes>
       </BrowserRouter>

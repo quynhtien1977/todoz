@@ -67,3 +67,42 @@ export const optionalAuth = async (req, res, next) => {
     
     next();
 };
+// Middleware phân quyền theo role (free, pro, admin)
+export const requireRole = (...roles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Vui lòng đăng nhập để truy cập"
+            });
+        }
+        
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền truy cập tính năng này"
+            });
+        }
+        
+        next();
+    };
+};
+
+// Middleware kiểm tra tính năng PRO
+export const requirePro = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            success: false,
+            message: "Vui lòng đăng nhập để truy cập"
+        });
+    }
+    
+    if (req.user.role !== "pro" && req.user.role !== "admin") {
+        return res.status(403).json({
+            success: false,
+            message: "Tính năng này chỉ dành cho tài khoản Pro. Vui lòng nâng cấp"
+        });
+    }
+    
+    next();
+};
