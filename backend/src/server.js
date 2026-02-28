@@ -115,7 +115,7 @@ app.use(cors({
 // ==================== ROUTES ====================
 
 // Serve uploaded files (avatars, etc.)
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Apply auth rate limiter only to login/register (NOT to verify, profile, OAuth callbacks)
 app.use("/api/auth/login", authLimiter);

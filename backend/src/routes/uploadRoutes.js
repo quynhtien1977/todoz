@@ -1,15 +1,22 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 import { protect } from "../middleware/authMiddleware.js";
 import User from "../models/User.js";
 
 const router = express.Router();
 
+// Ensure uploads directory exists
+const uploadsDir = "uploads/avatars";
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 // Multer config
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/avatars");
+        cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname);
@@ -57,6 +64,15 @@ router.post("/avatar", protect, (req, res, next) => {
                 success: false,
                 message: "Vui lòng chọn file ảnh"
             });
+        }
+
+        // Delete old avatar file if it exists on disk
+        const currentUser = await User.findById(req.user.id);
+        if (currentUser?.avatar?.startsWith("/uploads/avatars/")) {
+            const oldPath = path.join(process.cwd(), currentUser.avatar.slice(1)); // remove leading /
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
+            }
         }
 
         const avatarUrl = `/uploads/avatars/${req.file.filename}`;

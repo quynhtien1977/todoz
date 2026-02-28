@@ -87,6 +87,7 @@ const ProfilePage = () => {
       return;
     }
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
   const fetchProfile = async () => {
@@ -128,6 +129,13 @@ const ProfilePage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate client-side
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Chỉ chấp nhận file ảnh (JPEG, PNG, WebP, GIF)");
+      return;
+    }
+
     if (file.size > 2 * 1024 * 1024) {
       toast.error("File quá lớn. Tối đa 2MB");
       return;
@@ -138,15 +146,19 @@ const ProfilePage = () => {
 
     try {
       setUploadingAvatar(true);
-      await api.post("/upload/avatar", formData, {
+      const res = await api.post("/upload/avatar", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Cập nhật avatar thành công");
       await checkAuth();
+      // Refetch profile to update avatar display immediately
+      await fetchProfile();
     } catch (err) {
       toast.error(err.response?.data?.message || "Lỗi upload avatar");
     } finally {
       setUploadingAvatar(false);
+      // Reset file input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -256,7 +268,7 @@ const ProfilePage = () => {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/">
-              <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
+              <Button variant="ghost" size="sm" className="gap-2 cursor-pointer hover:bg-violet-50 hover:text-violet-700 transition-colors">
                 <ArrowLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">Quay lại</span>
               </Button>
@@ -265,9 +277,22 @@ const ProfilePage = () => {
               TodoZ
             </h1>
           </div>
-          <span className="text-xs text-muted-foreground hidden sm:inline">
-            Trang cá nhân
-          </span>
+          <Badge
+            variant="outline"
+            className={
+              isPro
+                ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0 px-3 py-1"
+                : "bg-gray-100 text-gray-600 border-gray-200 px-3 py-1"
+            }
+          >
+            {isPro ? (
+              <>
+                <Crown className="w-3 h-3 mr-1" /> PRO
+              </>
+            ) : (
+              "FREE"
+            )}
+          </Badge>
         </div>
       </div>
 
@@ -276,16 +301,12 @@ const ProfilePage = () => {
           {/* ===== LEFT: Profile Hero + Tabs ===== */}
           <div className="lg:col-span-2 space-y-6">
             {/* Profile Hero */}
-            <Card className="border-border/50 shadow-md overflow-hidden">
-              {/* Gradient banner */}
-              <div className="h-24 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 relative">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE4YzMuMzE0IDAgNi0yLjY4NiA2LTZzLTIuNjg2LTYtNi02LTYgMi42ODYtNiA2IDIuNjg2IDYgNiA2eiIvPjwvZz48L2c+PC9zdmc+')] opacity-60" />
-              </div>
-              <CardContent className="pt-0 -mt-12 relative">
+            <Card className="border-border/50 shadow-md">
+              <CardContent className="pt-6">
                 <div className="flex flex-col sm:flex-row items-center gap-5">
                   {/* Avatar */}
-                  <div className="relative group cursor-pointer">
-                    <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-white shadow-xl">
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-purple-100 shadow-lg">
                       <img
                         src={avatarUrl}
                         alt={user.name}
@@ -317,42 +338,35 @@ const ProfilePage = () => {
                   </div>
 
                   {/* Info */}
-                  <div className="text-center sm:text-left flex-1 pt-2">
-                    <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
-                      <h2 className="text-2xl font-bold text-foreground">
-                        {user.name}
-                      </h2>
-                      <Badge
-                        className={
-                          isPro
-                            ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-md shadow-purple-200"
-                            : "bg-gray-100 text-gray-500 border border-gray-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                        }
-                      >
-                        {isPro ? (
-                          <>
-                            <Crown className="w-3 h-3 mr-1" /> PRO
-                          </>
-                        ) : (
-                          "FREE"
-                        )}
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground text-sm mt-0.5">{user.email}</p>
-                    <div className="flex items-center gap-2 mt-1.5 justify-center sm:justify-start flex-wrap">
-                      <span className="text-xs text-muted-foreground">
-                        Thành viên từ{" "}
-                        {new Date(user.createdAt).toLocaleDateString("vi-VN", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </span>
-                      {user.authProvider !== "local" && (
-                        <Badge variant="secondary" className="text-[10px] px-2 py-0">
-                          {user.authProvider}
-                        </Badge>
+                  <div className="text-center sm:text-left flex-1">
+                    <h2 className="text-2xl font-bold text-foreground">
+                      {user.name}
+                    </h2>
+                    <p className="text-muted-foreground text-sm">{user.email}</p>
+                    <div className="flex items-center gap-2 mt-2 justify-center sm:justify-start">
+                      {isPro ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-600">
+                          <Sparkles className="w-3 h-3" /> Pro Member since{" "}
+                          {new Date(user.createdAt).toLocaleDateString("vi-VN", {
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Thành viên từ{" "}
+                          {new Date(user.createdAt).toLocaleDateString("vi-VN", {
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </span>
                       )}
                     </div>
+                    {user.authProvider !== "local" && (
+                      <Badge variant="secondary" className="mt-2 text-xs">
+                        Đăng nhập bằng {user.authProvider}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -361,15 +375,15 @@ const ProfilePage = () => {
             {/* Tabs */}
             <Tabs defaultValue="personal" className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="personal" className="gap-2 cursor-pointer">
+                <TabsTrigger value="personal" className="gap-2">
                   <User className="w-4 h-4" />
                   <span className="hidden sm:inline">Thông tin</span>
                 </TabsTrigger>
-                <TabsTrigger value="preferences" className="gap-2 cursor-pointer">
+                <TabsTrigger value="preferences" className="gap-2">
                   <Settings className="w-4 h-4" />
                   <span className="hidden sm:inline">Tùy chọn</span>
                 </TabsTrigger>
-                <TabsTrigger value="security" className="gap-2 cursor-pointer">
+                <TabsTrigger value="security" className="gap-2">
                   <Shield className="w-4 h-4" />
                   <span className="hidden sm:inline">Bảo mật</span>
                 </TabsTrigger>
@@ -448,7 +462,7 @@ const ProfilePage = () => {
                       <Button
                         type="submit"
                         disabled={saving}
-                        className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white w-full sm:w-auto cursor-pointer shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300 transition-all duration-200 hover:scale-[1.02]"
+                        className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white w-full sm:w-auto cursor-pointer shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300 transition-all duration-200"
                       >
                         {saving ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -495,7 +509,7 @@ const ProfilePage = () => {
                             className={`cursor-pointer transition-all duration-200 ${
                               preferences.theme === opt.value
                                 ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-200"
-                                : "hover:border-violet-300"
+                                : "hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300"
                             }`}
                           >
                             {opt.label}
@@ -509,8 +523,8 @@ const ProfilePage = () => {
                       <Label>Ngôn ngữ</Label>
                       <div className="flex gap-2">
                         {[
-                          { value: "vi", label: "🇻🇳 Tiếng Việt" },
-                          { value: "en", label: "🇬🇧 English" },
+                          { value: "vi", label: "Tiếng Việt" },
+                          { value: "en", label: "English" },
                         ].map((opt) => (
                           <Button
                             key={opt.value}
@@ -529,7 +543,7 @@ const ProfilePage = () => {
                             className={`cursor-pointer transition-all duration-200 ${
                               preferences.language === opt.value
                                 ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-200"
-                                : "hover:border-violet-300"
+                                : "hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300"
                             }`}
                           >
                             {opt.label}
@@ -543,9 +557,9 @@ const ProfilePage = () => {
                       <Label>Mức ưu tiên mặc định</Label>
                       <div className="flex gap-2">
                         {[
-                          { value: "low", label: "Thấp", dot: "bg-green-500" },
-                          { value: "medium", label: "Trung bình", dot: "bg-yellow-500" },
-                          { value: "high", label: "Cao", dot: "bg-red-500" },
+                          { value: "low", label: "Thấp", color: "text-green-600" },
+                          { value: "medium", label: "Trung bình", color: "text-yellow-600" },
+                          { value: "high", label: "Cao", color: "text-red-600" },
                         ].map((opt) => (
                           <Button
                             key={opt.value}
@@ -561,13 +575,12 @@ const ProfilePage = () => {
                                 defaultPriority: opt.value,
                               })
                             }
-                            className={`cursor-pointer transition-all duration-200 gap-1.5 ${
+                            className={`cursor-pointer transition-all duration-200 ${
                               preferences.defaultPriority === opt.value
                                 ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-200"
-                                : "hover:border-violet-300"
+                                : "hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300"
                             }`}
                           >
-                            <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
                             {opt.label}
                           </Button>
                         ))}
@@ -577,7 +590,7 @@ const ProfilePage = () => {
                     {/* Notifications */}
                     <div className="space-y-4">
                       <Label>Thông báo</Label>
-                      <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/50 border border-border/30">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <div>
                           <p className="text-sm font-medium">Email</p>
                           <p className="text-xs text-muted-foreground">
@@ -585,7 +598,6 @@ const ProfilePage = () => {
                           </p>
                         </div>
                         <Switch
-                          className="cursor-pointer"
                           checked={preferences.notifications.email}
                           onCheckedChange={(v) =>
                             setPreferences({
@@ -598,7 +610,7 @@ const ProfilePage = () => {
                           }
                         />
                       </div>
-                      <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/50 border border-border/30">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <div>
                           <p className="text-sm font-medium">Đẩy (Push)</p>
                           <p className="text-xs text-muted-foreground">
@@ -606,7 +618,6 @@ const ProfilePage = () => {
                           </p>
                         </div>
                         <Switch
-                          className="cursor-pointer"
                           checked={preferences.notifications.push}
                           onCheckedChange={(v) =>
                             setPreferences({
@@ -624,7 +635,7 @@ const ProfilePage = () => {
                     <Button
                       onClick={handleSavePreferences}
                       disabled={savingPrefs}
-                      className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white w-full sm:w-auto cursor-pointer shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300 transition-all duration-200 hover:scale-[1.02]"
+                      className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white w-full sm:w-auto cursor-pointer shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300 transition-all duration-200"
                     >
                       {savingPrefs ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -782,7 +793,7 @@ const ProfilePage = () => {
                           <Button
                             type="submit"
                             disabled={changingPassword}
-                            className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white cursor-pointer shadow-md shadow-purple-200 hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                            className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white cursor-pointer shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300 transition-all duration-200"
                           >
                             {changingPassword ? (
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -807,7 +818,7 @@ const ProfilePage = () => {
                       {["google", "github", "facebook"].map((provider) => (
                         <div
                           key={provider}
-                          className="flex items-center justify-between p-3.5 rounded-xl bg-muted/50 border border-border/30"
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                         >
                           <div className="flex items-center gap-3">
                             <div
@@ -857,7 +868,7 @@ const ProfilePage = () => {
                         gồm tất cả tasks. Hành động này không thể hoàn tác.
                       </p>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="gap-2 cursor-pointer hover:border-violet-300 transition-colors">
+                        <Button variant="outline" size="sm" className="gap-2 cursor-pointer hover:bg-violet-50 hover:text-violet-700 transition-colors">
                           <Download className="w-4 h-4" />
                           Xuất dữ liệu
                         </Button>
@@ -939,99 +950,87 @@ const ProfilePage = () => {
 
           {/* ===== RIGHT SIDEBAR ===== */}
           <div className="space-y-6">
-            {/* Account Tier Card */}
-            <Card
-              className={`shadow-lg overflow-hidden relative ${
+            {/* Account Tier Card — matching Stitch design */}
+            <div className="rounded-xl overflow-hidden shadow-lg border border-violet-100/50 bg-white/80 backdrop-blur-sm">
+              {/* Gradient Header */}
+              <div className={`p-6 text-white text-center ${
                 isPro
-                  ? "bg-gradient-to-br from-violet-600 via-purple-700 to-indigo-800 text-white border-0"
-                  : "border-border/50 bg-card"
-              }`}
-            >
-              {/* Decorative glow for pro */}
-              {isPro && (
-                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
-              )}
-              <CardHeader className="pb-2 relative">
-                <div className="flex items-center justify-between">
-                  <CardTitle
-                    className={`text-base flex items-center gap-2 ${
-                      isPro ? "text-white" : ""
-                    }`}
-                  >
-                    {isPro ? (
-                      <>
-                        <div className="w-8 h-8 rounded-lg bg-amber-400/20 flex items-center justify-center">
-                          <Crown className="w-4 h-4 text-amber-300" />
-                        </div>
-                        TodoZ Pro
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <User className="w-4 h-4 text-gray-500" />
-                        </div>
-                        Gói Free
-                      </>
-                    )}
-                  </CardTitle>
-                  {isPro && (
-                    <Badge className="bg-amber-400/20 text-amber-200 border-0 text-[10px]">
-                      ACTIVE
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2.5 pt-2 relative">
-                {[
-                  {
-                    label: "Tasks không giới hạn",
-                    free: false,
-                    freeLabel: "Tối đa 50 tasks",
-                  },
-                  { label: "Hỗ trợ ưu tiên 24/7", free: false, freeLabel: "Hỗ trợ cơ bản" },
-                  { label: "Tùy chỉnh giao diện", free: false, freeLabel: "Giao diện mặc định" },
-                  { label: "Bộ lọc nâng cao", free: true },
-                  {
-                    label: "AI Chat không giới hạn",
-                    free: false,
-                    freeLabel: "AI Chat (5 lượt/ngày)",
-                  },
-                ].map((feature, i) => (
-                  <div key={i} className="flex items-center gap-2.5 text-sm py-1">
-                    {isPro ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
-                    ) : feature.free ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-300/60 shrink-0" />
-                    )}
-                    <span className={`${
-                      isPro
-                        ? "text-white/90"
-                        : feature.free
-                        ? "text-foreground"
-                        : "text-muted-foreground"
-                    }`}>
-                      {isPro
-                        ? feature.label
-                        : feature.freeLabel || feature.label}
+                  ? "bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500"
+                  : "bg-gradient-to-br from-violet-600 to-purple-500"
+              }`}>
+                <p className="text-sm font-bold uppercase tracking-widest mb-1 opacity-80">
+                  Gói hiện tại
+                </p>
+                <h3 className="text-4xl font-black mb-4">
+                  {isPro ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Crown className="w-8 h-8" /> PRO
+                    </span>
+                  ) : "FREE"}
+                </h3>
+                {!isPro && (
+                  <button className="w-full bg-white text-violet-600 font-bold py-3 rounded-lg hover:shadow-lg hover:shadow-white/30 transition-all cursor-pointer active:scale-[0.98]">
+                    Nâng cấp PRO
+                  </button>
+                )}
+              </div>
+
+              {/* Card Body */}
+              <div className="p-6 space-y-4">
+                {/* Usage Progress */}
+                <div>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-muted-foreground">Tasks đã dùng</span>
+                    <span className="font-bold text-foreground">
+                      {stats.totalTasks}{!isPro && " / 50"}
                     </span>
                   </div>
-                ))}
-
-                {!isPro && (
-                  <div className="pt-3">
-                    <Button className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-purple-200 hover:shadow-xl hover:shadow-purple-300 cursor-pointer transition-all duration-300 hover:scale-[1.02] h-10">
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Nâng cấp Pro
-                    </Button>
-                    <p className="text-center text-[10px] text-muted-foreground mt-2">
-                      Mở khóa tất cả tính năng premium
-                    </p>
+                  <div className="w-full bg-violet-100 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-violet-500 to-purple-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${isPro ? 100 : Math.min((stats.totalTasks / 50) * 100, 100)}%` }}
+                    />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  {!isPro && (
+                    <p className="text-xs text-center text-muted-foreground mt-1.5">
+                      Đã dùng {stats.totalTasks}/50 tasks
+                    </p>
+                  )}
+                </div>
+
+                <hr className="border-violet-100" />
+
+                {/* Feature List */}
+                <ul className="space-y-3">
+                  {[
+                    { label: "Quản lý tasks cơ bản", included: true },
+                    { label: "Tối đa 3 bộ lọc", included: true },
+                    { label: "AI Chat tự động hóa", included: false, proOnly: true },
+                    { label: "Đồng bộ đám mây", included: false, proOnly: true },
+                  ].map((feature, i) => (
+                    <li
+                      key={i}
+                      className={`flex items-center gap-2.5 text-sm ${
+                        isPro || feature.included
+                          ? "text-foreground/70"
+                          : "text-muted-foreground/50 line-through"
+                      }`}
+                    >
+                      {isPro || feature.included ? (
+                        <CheckCircle2 className="w-4.5 h-4.5 text-green-500 shrink-0" />
+                      ) : (
+                        <svg className="w-4.5 h-4.5 text-gray-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                      )}
+                      {feature.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
 
             {/* Stats */}
             <Card className="border-border/50 shadow-sm">
@@ -1040,19 +1039,19 @@ const ProfilePage = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-3.5 rounded-xl bg-violet-50 border border-violet-100">
+                  <div className="text-center p-3 rounded-lg bg-violet-50">
                     <ListTodo className="w-5 h-5 mx-auto text-violet-600 mb-1" />
                     <p className="text-2xl font-bold text-foreground">
                       {stats.totalTasks}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">Tổng tasks</p>
+                    <p className="text-xs text-muted-foreground">Tổng tasks</p>
                   </div>
-                  <div className="text-center p-3.5 rounded-xl bg-green-50 border border-green-100">
+                  <div className="text-center p-3 rounded-lg bg-green-50">
                     <CheckCircle2 className="w-5 h-5 mx-auto text-green-600 mb-1" />
                     <p className="text-2xl font-bold text-foreground">
                       {stats.completedTasks}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">Hoàn thành</p>
+                    <p className="text-xs text-muted-foreground">Hoàn thành</p>
                   </div>
                 </div>
 
@@ -1103,16 +1102,14 @@ const ProfilePage = () => {
                   </div>
                 </div>
 
-                {/* Pending tasks */}
-                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100">
-                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
-                    <Flame className="w-5 h-5 text-orange-500" />
-                  </div>
+                {/* Streak placeholder */}
+                <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-orange-50">
+                  <Flame className="w-5 h-5 text-orange-500" />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">
+                    <p className="text-sm font-medium">
                       {stats.pendingTasks} tasks đang chờ
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Cố lên nào! 💪
                     </p>
                   </div>
