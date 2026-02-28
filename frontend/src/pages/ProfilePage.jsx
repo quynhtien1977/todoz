@@ -147,15 +147,15 @@ const ProfilePage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate client-side
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    // Validate client-side — accept common image types
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff", "image/avif"];
     if (!allowed.includes(file.type)) {
-      toast.error("Chỉ chấp nhận file ảnh (JPEG, PNG, WebP, GIF)");
+      toast.error("Chỉ chấp nhận file ảnh (JPEG, PNG, WebP, GIF, BMP, TIFF, AVIF)");
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("File quá lớn. Tối đa 2MB");
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File quá lớn. Tối đa 5MB");
       return;
     }
 
@@ -168,6 +168,7 @@ const ProfilePage = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Cập nhật avatar thành công");
+      // Force re-fetch user data to update avatar everywhere
       await checkAuth();
       // Refetch profile to update avatar display immediately
       await fetchProfile();
@@ -262,9 +263,9 @@ const ProfilePage = () => {
     return { level: 5, label: "Rất mạnh", color: "bg-emerald-500" };
   };
 
-  const avatarUrl = user?.avatar?.startsWith("/uploads")
-    ? `${import.meta.env.MODE === "production" ? "" : "http://localhost:5001"}${user.avatar}`
-    : user?.avatar || "/default_avatar.jpg";
+  const avatarUrl = user?.avatar && user.avatar !== "/default_avatar.jpg"
+    ? `${import.meta.env.MODE === "production" ? "" : "http://localhost:5001"}${user.avatar}?t=${Date.now()}`
+    : "/default_avatar.jpg";
 
   const isPro = user?.role === "pro" || user?.role === "admin";
   const isOAuth = user?.authProvider !== "local";
@@ -334,7 +335,7 @@ const ProfilePage = () => {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      accept="image/*"
                       className="hidden"
                       onChange={handleAvatarChange}
                     />

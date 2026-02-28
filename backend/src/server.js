@@ -8,6 +8,7 @@ import { connectDB } from "./config/db.js";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
+import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
 import passport from "./config/passport.js";
 import helmet from "helmet";
@@ -19,7 +20,8 @@ import { sanitizeBody } from "./middleware/xssSanitizer.js";
 dotenv.config();
 
 const PORT = process.env.PORT;
-const __dirname = path.resolve();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -114,8 +116,12 @@ app.use(cors({
 
 // ==================== ROUTES ====================
 
-// Serve uploaded files (avatars, etc.)
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Serve uploaded files (avatars, etc.) — uploads/ folder is at backend/uploads/
+// Set Cross-Origin-Resource-Policy: cross-origin so frontend (different port in dev) can load images
+app.use("/uploads", (req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+}, express.static(path.join(__dirname, "../uploads")));
 
 // Apply auth rate limiter only to login/register (NOT to verify, profile, OAuth callbacks)
 app.use("/api/auth/login", authLimiter);
@@ -127,10 +133,10 @@ app.use("/api/chat", chatLimiter, chatRoute);
 app.use("/api/music", musicRoute);
 
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+  app.use(express.static(path.join(__dirname, "../../frontend/dist")));
 
   app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+    res.sendFile(path.join(__dirname, "../../frontend/dist/index.html"));
   });
 }
 

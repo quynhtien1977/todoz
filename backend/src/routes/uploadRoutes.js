@@ -2,42 +2,39 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
+import sharp from "sharp";
 import { protect } from "../middleware/authMiddleware.js";
 import User from "../models/User.js";
 
 const router = express.Router();
 
-// Ensure uploads directory exists
-const uploadsDir = "uploads/avatars";
+// Resolve __dirname for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// uploads/avatars nằm tại backend/uploads/avatars (cùng cấp với src/)
+const uploadsDir = path.join(__dirname, "../../uploads/avatars");
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Multer config
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadsDir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname);
-        const uniqueName = `avatar_${req.user.id}_${Date.now()}${ext}`;
-        cb(null, uniqueName);
-    }
-});
+// Multer config — lưu tạm vào memory để sharp xử lý trước khi ghi file
+const memoryStorage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (allowed.includes(file.mimetype)) {
+    // sharp hỗ trợ rất nhiều format, accept rộng rãi
+    if (file.mimetype.startsWith("image/")) {
         cb(null, true);
     } else {
-        cb(new Error("Chỉ chấp nhận file ảnh (JPEG, PNG, WebP, GIF)"), false);
+        cb(new Error("Chỉ chấp nhận file ảnh"), false);
     }
 };
 
 const upload = multer({
-    storage,
+    storage: memoryStorage,
     fileFilter,
-    limits: { fileSize: 2 * 1024 * 1024 } // 2MB max
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB raw input (will be resized)
 });
 
 // POST /api/upload/avatar
@@ -47,7 +44,7 @@ router.post("/avatar", protect, (req, res, next) => {
             if (err.code === "LIMIT_FILE_SIZE") {
                 return res.status(400).json({
                     success: false,
-                    message: "File quá lớn. Tối đa 2MB"
+                    message: "File quá lớn. Tối đa 5MB"
                 });
             }
             return res.status(400).json({ success: false, message: err.message });
@@ -68,14 +65,31 @@ router.post("/avatar", protect, (req, res, next) => {
 
         // Delete old avatar file if it exists on disk
         const currentUser = await User.findById(req.user.id);
-        if (currentUser?.avatar?.startsWith("/uploads/avatars/")) {
-            const oldPath = path.join(process.cwd(), currentUser.avatar.slice(1)); // remove leading /
+        if (currentUser?.avatar && currentUser.avatar !== "/default_avatar.jpg") {
+            // avatar stored as "/uploads/avatars/filename.webp"
+            const oldPath = path.join(__dirname, "../../", currentUser.avatar);
             if (fs.existsSync(oldPath)) {
-                fs.unlinkSync(oldPath);
+                try { fs.unlinkSync(oldPath); } catch (e) { /* ignore */ }
             }
         }
 
-        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+        // Process image with sharp:
+        // - Resize to 400x400 (covers most avatar use cases — displayed at 96px but retina-ready)
+        // - Crop to square (cover fit, centered)
+        // - Convert to WebP for smaller file size
+        // - Quality 85 for good balance of quality vs size
+        const filename = `avatar_${req.user.id}_${Date.now()}.webp`;
+        const outputPath = path.join(uploadsDir, filename);
+
+        await sharp(req.file.buffer)
+            .resize(400, 400, {
+                fit: "cover",       // Crop to fill the square
+                position: "centre"  // Center the crop
+            })
+            .webp({ quality: 85 })
+            .toFile(outputPath);
+
+        const avatarUrl = `/uploads/avatars/${filename}`;
 
         const user = await User.findByIdAndUpdate(
             req.user.id,
@@ -91,7 +105,7 @@ router.post("/avatar", protect, (req, res, next) => {
         });
     } catch (error) {
         console.error("Upload avatar error:", error);
-        res.status(500).json({ success: false, message: "Lỗi hệ thống" });
+        res.status(500).json({ success: false, message: "Lỗi xử lý ảnh" });
     }
 });
 

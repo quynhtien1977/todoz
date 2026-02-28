@@ -30,20 +30,16 @@ const Header = () => {
           // Đã đăng nhập
           <div className="flex items-center gap-3">
             <Link to="/profile" className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity">
-              {user.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  alt={user.name} 
-                  className="w-8 h-8 rounded-full object-cover ring-2 ring-purple-200 hover:ring-purple-400 transition-all"
-                  onError={(e) => { e.target.onerror = null; e.target.src = "/default_avatar.jpg"; }}
-                />
-              ) : (
-                <img 
-                  src="/default_avatar.jpg" 
-                  alt={user.name} 
-                  className="w-8 h-8 rounded-full object-cover ring-2 ring-purple-200 hover:ring-purple-400 transition-all"
-                />
-              )}
+              <img 
+                src={
+                  user.avatar && user.avatar !== "/default_avatar.jpg"
+                    ? `${import.meta.env.MODE === "production" ? "" : "http://localhost:5001"}${user.avatar}`
+                    : "/default_avatar.jpg"
+                }
+                alt={user.name} 
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-purple-200 hover:ring-purple-400 transition-all"
+                onError={(e) => { e.target.onerror = null; e.target.src = "/default_avatar.jpg"; }}
+              />
               <span className="text-foreground hidden sm:inline">{user.name}</span>
             </Link>
             <Button 
