@@ -20,9 +20,6 @@ import {
   Save,
   Loader2,
   CheckCircle2,
-  ListTodo,
-  Target,
-  Flame,
   Crown,
   Sparkles,
   Eye,
@@ -277,22 +274,7 @@ const ProfilePage = () => {
               TodoZ
             </h1>
           </div>
-          <Badge
-            variant="outline"
-            className={
-              isPro
-                ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0 px-3 py-1"
-                : "bg-gray-100 text-gray-600 border-gray-200 px-3 py-1"
-            }
-          >
-            {isPro ? (
-              <>
-                <Crown className="w-3 h-3 mr-1" /> PRO
-              </>
-            ) : (
-              "FREE"
-            )}
-          </Badge>
+
         </div>
       </div>
 
@@ -301,12 +283,12 @@ const ProfilePage = () => {
           {/* ===== LEFT: Profile Hero + Tabs ===== */}
           <div className="lg:col-span-2 space-y-6">
             {/* Profile Hero */}
-            <Card className="border-border/50 shadow-md">
-              <CardContent className="pt-6">
+            <Card className="border-violet-100/50 shadow-md bg-white/80 backdrop-blur-sm rounded-xl overflow-hidden">
+              <CardContent className="pt-6 pb-6">
                 <div className="flex flex-col sm:flex-row items-center gap-5">
                   {/* Avatar */}
                   <div className="relative group">
-                    <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-purple-100 shadow-lg">
+                    <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-violet-200/60 shadow-lg">
                       <img
                         src={avatarUrl}
                         alt={user.name}
@@ -339,13 +321,26 @@ const ProfilePage = () => {
 
                   {/* Info */}
                   <div className="text-center sm:text-left flex-1">
-                    <h2 className="text-2xl font-bold text-foreground">
-                      {user.name}
-                    </h2>
-                    <p className="text-muted-foreground text-sm">{user.email}</p>
-                    <div className="flex items-center gap-2 mt-2 justify-center sm:justify-start">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
+                      <h2 className="text-2xl font-bold text-foreground">
+                        {user.name}
+                      </h2>
+                      <Badge
+                        className={`text-xs font-bold px-2.5 py-0.5 rounded-md ${
+                          isPro
+                            ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0"
+                            : "bg-violet-100 text-violet-600 border-violet-200"
+                        }`}
+                      >
+                        {isPro ? (
+                          <><Crown className="w-3 h-3 mr-1" /> PRO</>
+                        ) : "Free Tier"}
+                      </Badge>
+                    </div>
+                    <p className="text-slate-500 text-sm mt-0.5">{user.email}</p>
+                    <p className="text-sm text-violet-600/70 font-medium mt-1">
                       {isPro ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-600">
+                        <span className="inline-flex items-center gap-1">
                           <Sparkles className="w-3 h-3" /> Pro Member since{" "}
                           {new Date(user.createdAt).toLocaleDateString("vi-VN", {
                             month: "long",
@@ -353,15 +348,12 @@ const ProfilePage = () => {
                           })}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Thành viên từ{" "}
-                          {new Date(user.createdAt).toLocaleDateString("vi-VN", {
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </span>
+                        `Thành viên từ ${new Date(user.createdAt).toLocaleDateString("vi-VN", {
+                          month: "long",
+                          year: "numeric",
+                        })}`
                       )}
-                    </div>
+                    </p>
                     {user.authProvider !== "local" && (
                       <Badge variant="secondary" className="mt-2 text-xs">
                         Đăng nhập bằng {user.authProvider}
@@ -374,7 +366,8 @@ const ProfilePage = () => {
 
             {/* Tabs */}
             <Tabs defaultValue="personal" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-4">
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-violet-100/50 overflow-hidden shadow-sm">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="personal" className="gap-2">
                   <User className="w-4 h-4" />
                   <span className="hidden sm:inline">Thông tin</span>
@@ -389,31 +382,68 @@ const ProfilePage = () => {
                 </TabsTrigger>
               </TabsList>
 
+              </div>
+
               {/* === Personal Info Tab === */}
               <TabsContent value="personal">
-                <Card className="border-border/50 shadow-sm">
+                <Card className="border-violet-100/50 shadow-sm bg-white/80 backdrop-blur-sm rounded-xl">
                   <CardHeader>
-                    <CardTitle className="text-lg">Thông tin cá nhân</CardTitle>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                      <User className="w-5 h-5 text-violet-600" />
+                      Thông tin cá nhân
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <form onSubmit={handleSaveProfile} className="space-y-4">
+                    <form onSubmit={handleSaveProfile} className="space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                          <Label htmlFor="name" className="text-sm font-bold text-slate-700">Tên hiển thị</Label>
+                          <Input
+                            id="name"
+                            value={profile.name}
+                            onChange={(e) =>
+                              setProfile({ ...profile, name: e.target.value })
+                            }
+                            placeholder="Tên của bạn"
+                            maxLength={50}
+                            className="rounded-lg border-violet-100 bg-violet-50/30 focus:border-violet-400 focus:ring-violet-200/50"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="phone" className="text-sm font-bold text-slate-700">Số điện thoại</Label>
+                          <Input
+                            id="phone"
+                            value={profile.phone}
+                            onChange={(e) =>
+                              setProfile({ ...profile, phone: e.target.value })
+                            }
+                            placeholder="+84 90 123 4567"
+                            className="rounded-lg border-violet-100 bg-violet-50/30 focus:border-violet-400 focus:ring-violet-200/50"
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="name">Tên hiển thị</Label>
+                        <Label htmlFor="location" className="text-sm font-bold text-slate-700">Địa chỉ</Label>
                         <Input
-                          id="name"
-                          value={profile.name}
+                          id="location"
+                          value={profile.location}
                           onChange={(e) =>
-                            setProfile({ ...profile, name: e.target.value })
+                            setProfile({
+                              ...profile,
+                              location: e.target.value,
+                            })
                           }
-                          placeholder="Tên của bạn"
-                          maxLength={50}
+                          placeholder="TP. Hồ Chí Minh"
+                          maxLength={100}
+                          className="rounded-lg border-violet-100 bg-violet-50/30 focus:border-violet-400 focus:ring-violet-200/50"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="bio">
+                        <Label htmlFor="bio" className="text-sm font-bold text-slate-700">
                           Giới thiệu{" "}
-                          <span className="text-muted-foreground text-xs">
+                          <span className="text-slate-400 font-normal text-xs">
                             ({profile.bio.length}/200)
                           </span>
                         </Label>
@@ -426,37 +456,8 @@ const ProfilePage = () => {
                           placeholder="Viết vài dòng giới thiệu về bản thân..."
                           maxLength={200}
                           rows={3}
-                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                          className="w-full rounded-lg border border-violet-100 bg-violet-50/30 px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200/50 focus-visible:border-violet-400 resize-none transition-all"
                         />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="phone">Số điện thoại</Label>
-                          <Input
-                            id="phone"
-                            value={profile.phone}
-                            onChange={(e) =>
-                              setProfile({ ...profile, phone: e.target.value })
-                            }
-                            placeholder="0901234567"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="location">Địa chỉ</Label>
-                          <Input
-                            id="location"
-                            value={profile.location}
-                            onChange={(e) =>
-                              setProfile({
-                                ...profile,
-                                location: e.target.value,
-                              })
-                            }
-                            placeholder="TP. Hồ Chí Minh"
-                            maxLength={100}
-                          />
-                        </div>
                       </div>
 
                       <Button
@@ -478,9 +479,12 @@ const ProfilePage = () => {
 
               {/* === Preferences Tab === */}
               <TabsContent value="preferences">
-                <Card className="border-border/50 shadow-sm">
+                <Card className="border-violet-100/50 shadow-sm bg-white/80 backdrop-blur-sm rounded-xl">
                   <CardHeader>
-                    <CardTitle className="text-lg">Tùy chọn</CardTitle>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-violet-600" />
+                      Tùy chọn
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Theme */}
@@ -653,9 +657,12 @@ const ProfilePage = () => {
                 <div className="space-y-4">
                   {/* Change Password */}
                   {!isOAuth && (
-                    <Card className="border-border/50 shadow-sm">
+                    <Card className="border-violet-100/50 shadow-sm bg-white/80 backdrop-blur-sm rounded-xl">
                       <CardHeader>
-                        <CardTitle className="text-lg">Đổi mật khẩu</CardTitle>
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                          <Shield className="w-5 h-5 text-violet-600" />
+                          Đổi mật khẩu
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <form
@@ -678,6 +685,7 @@ const ProfilePage = () => {
                                   })
                                 }
                                 placeholder="••••••"
+                                className="rounded-lg border-violet-100 bg-violet-50/30 focus:border-violet-400 focus:ring-violet-200/50"
                               />
                               <button
                                 type="button"
@@ -712,6 +720,7 @@ const ProfilePage = () => {
                                   })
                                 }
                                 placeholder="••••••"
+                                className="rounded-lg border-violet-100 bg-violet-50/30 focus:border-violet-400 focus:ring-violet-200/50"
                               />
                               <button
                                 type="button"
@@ -770,6 +779,7 @@ const ProfilePage = () => {
                                   })
                                 }
                                 placeholder="••••••"
+                                className="rounded-lg border-violet-100 bg-violet-50/30 focus:border-violet-400 focus:ring-violet-200/50"
                               />
                               <button
                                 type="button"
@@ -808,9 +818,9 @@ const ProfilePage = () => {
                   )}
 
                   {/* Connected Accounts */}
-                  <Card className="border-border/50 shadow-sm">
+                  <Card className="border-violet-100/50 shadow-sm bg-white/80 backdrop-blur-sm rounded-xl">
                     <CardHeader>
-                      <CardTitle className="text-lg">
+                      <CardTitle className="text-lg font-bold">
                         Tài khoản liên kết
                       </CardTitle>
                     </CardHeader>
@@ -855,7 +865,7 @@ const ProfilePage = () => {
                   </Card>
 
                   {/* Danger Zone */}
-                  <Card className="border-red-200 shadow-sm">
+                  <Card className="border-red-200/60 shadow-sm bg-white/80 backdrop-blur-sm rounded-xl">
                     <CardHeader>
                       <CardTitle className="text-lg text-red-600 flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5" />
@@ -1033,31 +1043,27 @@ const ProfilePage = () => {
             </div>
 
             {/* Stats */}
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Thống kê</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-3 rounded-lg bg-violet-50">
-                    <ListTodo className="w-5 h-5 mx-auto text-violet-600 mb-1" />
-                    <p className="text-2xl font-bold text-foreground">
+            <div className="rounded-xl border border-violet-100/50 shadow-sm bg-white/80 backdrop-blur-sm overflow-hidden">
+              <div className="p-6">
+                <h3 className="text-lg font-bold mb-5">Thống kê hoạt động</h3>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="text-center p-4 rounded-xl bg-violet-50/80 border border-violet-100/50">
+                    <p className="text-2xl font-bold text-violet-600">
                       {stats.totalTasks}
                     </p>
-                    <p className="text-xs text-muted-foreground">Tổng tasks</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">Tổng tasks</p>
                   </div>
-                  <div className="text-center p-3 rounded-lg bg-green-50">
-                    <CheckCircle2 className="w-5 h-5 mx-auto text-green-600 mb-1" />
-                    <p className="text-2xl font-bold text-foreground">
+                  <div className="text-center p-4 rounded-xl bg-green-50/80 border border-green-100/50">
+                    <p className="text-2xl font-bold text-green-600">
                       {stats.completedTasks}
                     </p>
-                    <p className="text-xs text-muted-foreground">Hoàn thành</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">Hoàn thành</p>
                   </div>
                 </div>
 
                 {/* Completion Rate Circle */}
-                <div className="flex items-center justify-center">
-                  <div className="relative w-28 h-28">
+                <div className="flex flex-col items-center">
+                  <div className="relative w-32 h-32">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                       <circle
                         cx="50"
@@ -1092,30 +1098,22 @@ const ProfilePage = () => {
                       </defs>
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold">
+                      <span className="text-2xl font-black text-violet-600">
                         {stats.completionRate}%
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        Tỷ lệ
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">
+                        Rate
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Streak placeholder */}
-                <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-orange-50">
-                  <Flame className="w-5 h-5 text-orange-500" />
-                  <div>
-                    <p className="text-sm font-medium">
-                      {stats.pendingTasks} tasks đang chờ
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Cố lên nào! 💪
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                {/* Streak */}
+                <p className="mt-4 text-sm font-medium text-slate-600 text-center">
+                  Đang chờ: <span className="text-violet-600 font-bold">{stats.pendingTasks} tasks</span>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
