@@ -249,19 +249,19 @@ const MusicPlayer = () => {
       <Button variant="gradient" size="icon" onClick={() => setOpen(!open)} className={cn("fixed bottom-6 left-6 size-14 rounded-full shadow-custom-lg cursor-pointer z-50", isAnythingPlaying && "animate-pulse")}><Music className="size-6" /></Button>
 
       {open && (
-        <div className="fixed bottom-24 left-6 right-6 sm:right-auto sm:w-[600px] z-50 bg-background/95 backdrop-blur-md border rounded-2xl shadow-custom-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center justify-between p-4 border-b">
+        <div className="fixed bottom-24 left-6 right-6 sm:right-auto sm:w-[600px] z-50 bg-background/95 backdrop-blur-md border rounded-2xl shadow-custom-lg animate-in fade-in slide-in-from-bottom-4 duration-300 max-h-[calc(100dvh-120px)] flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b shrink-0">
             <div className="flex items-center gap-2"><Music className="size-5 text-primary" /><span className="font-semibold">Âm thanh</span></div>
             <Button variant="ghost" size="icon" className="size-8 cursor-pointer hover:bg-muted" onClick={() => setOpen(false)}><X className="size-4" /></Button>
           </div>
 
-          <Tabs defaultValue="music" className="flex flex-col">
+          <Tabs defaultValue="music" className="flex flex-col min-h-0 flex-1 overflow-hidden">
             <TabsList className="mx-4 mt-3">
               <TabsTrigger value="music" className="flex-1 gap-2 cursor-pointer"><Headphones className="size-4" />Nhạc</TabsTrigger>
               <TabsTrigger value="sfx" className="flex-1 gap-2 cursor-pointer"><Radio className="size-4" />SFX</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="music" className="p-4 pt-3">
+            <TabsContent value="music" className="p-4 pt-3 overflow-y-auto min-h-0">
               <div className="relative mb-3"><Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input placeholder="Tìm kiếm..." value={searchMusic} onChange={(e) => setSearchMusic(e.target.value)} className="pl-9 h-9" /></div>
               
               <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
@@ -285,7 +285,7 @@ const MusicPlayer = () => {
               ) : error ? (
                 <div className="text-center py-8 text-sm text-destructive">{error}</div>
               ) : (
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {filteredMusic.map((music) => (
                     <div key={music._id} onClick={() => handleMusicToggle(music)} className={cn("relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer hover:scale-105 group", currentMusic?._id === music._id ? "bg-primary/20 border-primary text-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>
                       {music.iconPath ? (
@@ -347,7 +347,7 @@ const MusicPlayer = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="sfx" className="p-4 pt-3">
+            <TabsContent value="sfx" className="p-4 pt-3 overflow-y-auto min-h-0">
               <div className="relative mb-3"><Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input placeholder="Tìm kiếm..." value={searchSfx} onChange={(e) => setSearchSfx(e.target.value)} className="pl-9 h-9" /></div>
               
               {loading ? (
@@ -355,7 +355,7 @@ const MusicPlayer = () => {
                   <Loader2 className="size-6 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {filteredSfx.map((sfx) => (
                     <div key={sfx._id} className={cn("rounded-xl border-2 overflow-hidden transition-all duration-300 ease-in-out", activeSfx[sfx._id] ? "bg-success/10 border-success" : "bg-muted/30 border-transparent hover:bg-muted/50")}>
                       <button onClick={() => handleSfxToggle(sfx)} className="w-full flex flex-col items-center justify-center p-3 cursor-pointer">
@@ -382,7 +382,7 @@ const MusicPlayer = () => {
             </TabsContent>
           </Tabs>
 
-          <div className="p-4 border-t">
+          <div className="p-4 border-t shrink-0">
             <div className="flex items-center gap-2 mb-2"><Volume2 className="size-4 text-muted-foreground" /><span className="text-sm font-medium">Âm lượng tổng</span><span className="text-xs text-muted-foreground ml-auto">{masterVolume}%</span></div>
             <Slider value={[masterVolume]} onValueChange={(value) => setMasterVolume(value[0])} max={100} step={1} />
           </div>

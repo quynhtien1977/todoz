@@ -11,6 +11,18 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Upload } from "lucide-react";
+import {
   ArrowLeft,
   Camera,
   User,
@@ -89,6 +101,10 @@ const ProfilePage = () => {
 
   // Avatar picker
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [confirmDeleteAvatar, setConfirmDeleteAvatar] = useState(false);
+  const [pendingSystemAvatar, setPendingSystemAvatar] = useState(null);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [pendingFilePreview, setPendingFilePreview] = useState(null);
 
   // Delete account
   const [deletePassword, setDeletePassword] = useState("");
@@ -162,10 +178,11 @@ const ProfilePage = () => {
     setAvatarDialogOpen(true);
   };
 
-  // Delete avatar — reset to default
+  // Delete avatar — reset to default (called after confirmation)
   const handleDeleteAvatar = async () => {
     try {
       setUploadingAvatar(true);
+      setConfirmDeleteAvatar(false);
       await api.delete("/upload/avatar");
       toast.success("Đã xóa avatar");
       await checkAuth();
@@ -178,10 +195,11 @@ const ProfilePage = () => {
     }
   };
 
-  // Select system avatar
+  // Select system avatar (called after confirmation)
   const handleSystemAvatar = async (avatarId) => {
     try {
       setUploadingAvatar(true);
+      setPendingSystemAvatar(null);
       await api.put("/upload/avatar/system", { avatarId });
       toast.success("Cập nhật avatar thành công");
       await checkAuth();
@@ -194,7 +212,8 @@ const ProfilePage = () => {
     }
   };
 
-  const handleAvatarChange = async (e) => {
+  // File selected — validate and show confirmation
+  const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -210,12 +229,23 @@ const ProfilePage = () => {
       return;
     }
 
+    // Create preview and store pending file for confirmation
+    const previewUrl = URL.createObjectURL(file);
+    setPendingFile(file);
+    setPendingFilePreview(previewUrl);
+    // Reset file input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Upload confirmed — actually upload the file
+  const handleConfirmUpload = async () => {
+    if (!pendingFile) return;
     const formData = new FormData();
-    formData.append("avatar", file);
+    formData.append("avatar", pendingFile);
 
     try {
       setUploadingAvatar(true);
-      const res = await api.post("/upload/avatar", formData, {
+      await api.post("/upload/avatar", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Cập nhật avatar thành công");
@@ -226,9 +256,17 @@ const ProfilePage = () => {
       toast.error(err.response?.data?.message || "Lỗi upload avatar");
     } finally {
       setUploadingAvatar(false);
-      // Reset file input so the same file can be re-selected
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setPendingFile(null);
+      if (pendingFilePreview) URL.revokeObjectURL(pendingFilePreview);
+      setPendingFilePreview(null);
     }
+  };
+
+  // Cancel upload confirmation
+  const handleCancelUpload = () => {
+    setPendingFile(null);
+    if (pendingFilePreview) URL.revokeObjectURL(pendingFilePreview);
+    setPendingFilePreview(null);
   };
 
   // Save profile
@@ -445,7 +483,7 @@ const ProfilePage = () => {
                                 return (
                                   <button
                                     key={sa.id}
-                                    onClick={() => handleSystemAvatar(sa.id)}
+                                    onClick={() => setPendingSystemAvatar(sa)}
                                     disabled={uploadingAvatar}
                                     className={`relative flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all cursor-pointer hover:scale-105 ${
                                       isActive
@@ -479,7 +517,7 @@ const ProfilePage = () => {
                               <Button
                                 variant="ghost"
                                 className="w-full justify-start gap-3 h-10 text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
-                                onClick={handleDeleteAvatar}
+                                onClick={() => setConfirmDeleteAvatar(true)}
                                 disabled={uploadingAvatar}
                               >
                                 {uploadingAvatar ? (
@@ -494,6 +532,115 @@ const ProfilePage = () => {
                         </div>
                       </DialogContent>
                     </Dialog>
+
+                    {/* Confirm: Delete Avatar */}
+                    <AlertDialog open={confirmDeleteAvatar} onOpenChange={setConfirmDeleteAvatar}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                            <Trash2 className="w-5 h-5" />
+                            Xóa avatar?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Avatar hiện tại sẽ bị xóa và thay bằng avatar mặc định. Bạn có chắc chắn?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="cursor-pointer">Hủy</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleDeleteAvatar}
+                            disabled={uploadingAvatar}
+                            className="bg-red-600 hover:bg-red-700 cursor-pointer"
+                          >
+                            {uploadingAvatar ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                            Xóa avatar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Confirm: System Avatar */}
+                    <AlertDialog open={!!pendingSystemAvatar} onOpenChange={(open) => { if (!open) setPendingSystemAvatar(null); }}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2">
+                            <Camera className="w-5 h-5 text-violet-500" />
+                            Đổi avatar?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription asChild>
+                            <div className="flex items-center gap-4 pt-2">
+                              <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-violet-200/60 bg-slate-100 shrink-0">
+                                {pendingSystemAvatar && (
+                                  <img
+                                    src={`/avatars/system/${pendingSystemAvatar.id}.svg`}
+                                    alt={pendingSystemAvatar.label}
+                                    className="w-full h-full object-cover"
+                                  />
+                                )}
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                Bạn muốn đổi avatar thành <strong className="text-foreground">{pendingSystemAvatar?.label}</strong>?
+                              </span>
+                            </div>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="cursor-pointer">Hủy</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => pendingSystemAvatar && handleSystemAvatar(pendingSystemAvatar.id)}
+                            disabled={uploadingAvatar}
+                            className="bg-violet-600 hover:bg-violet-700 cursor-pointer"
+                          >
+                            {uploadingAvatar ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                            Đổi avatar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Confirm: Upload from device */}
+                    <AlertDialog open={!!pendingFile} onOpenChange={(open) => { if (!open) handleCancelUpload(); }}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2">
+                            <Upload className="w-5 h-5 text-violet-500" />
+                            Tải lên avatar mới?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription asChild>
+                            <div className="flex items-center gap-4 pt-2">
+                              <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-violet-200/60 shadow-md shrink-0">
+                                {pendingFilePreview && (
+                                  <img
+                                    src={pendingFilePreview}
+                                    alt="Preview"
+                                    className="w-full h-full object-cover"
+                                  />
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                <p>Ảnh này sẽ được dùng làm avatar của bạn.</p>
+                                {pendingFile && (
+                                  <p className="text-xs text-slate-400 mt-1">
+                                    {pendingFile.name} ({(pendingFile.size / 1024).toFixed(0)} KB)
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={handleCancelUpload} className="cursor-pointer">Hủy</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleConfirmUpload}
+                            disabled={uploadingAvatar}
+                            className="bg-violet-600 hover:bg-violet-700 cursor-pointer"
+                          >
+                            {uploadingAvatar ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                            Tải lên
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
 
                   {/* Info */}
@@ -1095,7 +1242,10 @@ const ProfilePage = () => {
                         </Button>
                         <Dialog
                           open={deleteDialogOpen}
-                          onOpenChange={setDeleteDialogOpen}
+                          onOpenChange={(open) => {
+                            setDeleteDialogOpen(open);
+                            if (!open) setDeletePassword("");
+                          }}
                         >
                           <DialogTrigger asChild>
                             <Button
@@ -1109,15 +1259,20 @@ const ProfilePage = () => {
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle className="text-red-600">
+                              <DialogTitle className="text-red-600 flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5" />
                                 Xác nhận xóa tài khoản
                               </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 pt-2">
-                              <p className="text-sm text-muted-foreground">
-                                Bạn có chắc chắn muốn xóa tài khoản? Toàn bộ
-                                dữ liệu sẽ bị xóa vĩnh viễn.
-                              </p>
+                              <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                                <p className="text-sm text-red-700 font-medium">
+                                   Hành động này không thể hoàn tác!
+                                </p>
+                                <p className="text-sm text-red-600/80 mt-1">
+                                  Toàn bộ dữ liệu sẽ bị xóa vĩnh viễn: tài khoản, tasks, avatar, và tất cả cài đặt.
+                                </p>
+                              </div>
                               {!isOAuth && (
                                 <div className="space-y-2">
                                   <Label>
