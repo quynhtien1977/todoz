@@ -42,7 +42,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "https://res.cloudinary.com"],
       connectSrc: ["'self'"],
     }
   } : false,
@@ -115,13 +115,6 @@ app.use(cors({
 }));
 
 // ==================== ROUTES ====================
-
-// Serve uploaded files (avatars, etc.) — uploads/ folder is at backend/uploads/
-// Set Cross-Origin-Resource-Policy: cross-origin so frontend (different port in dev) can load images
-app.use("/uploads", (req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  next();
-}, express.static(path.join(__dirname, "../uploads")));
 
 // Apply auth rate limiter only to login/register (NOT to verify, profile, OAuth callbacks)
 app.use("/api/auth/login", authLimiter);

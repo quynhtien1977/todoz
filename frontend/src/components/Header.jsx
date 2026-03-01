@@ -33,7 +33,7 @@ const Header = () => {
               <img 
                 src={
                   user.avatar && user.avatar !== "/default_avatar.jpg"
-                    ? `${import.meta.env.MODE === "production" ? "" : "http://localhost:5001"}${user.avatar}`
+                    ? user.avatar
                     : "/default_avatar.jpg"
                 }
                 alt={user.name} 

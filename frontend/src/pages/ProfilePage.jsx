@@ -264,7 +264,7 @@ const ProfilePage = () => {
   };
 
   const avatarUrl = user?.avatar && user.avatar !== "/default_avatar.jpg"
-    ? `${import.meta.env.MODE === "production" ? "" : "http://localhost:5001"}${user.avatar}?t=${Date.now()}`
+    ? `${user.avatar}?t=${Date.now()}`
     : "/default_avatar.jpg";
 
   const isPro = user?.role === "pro" || user?.role === "admin";
