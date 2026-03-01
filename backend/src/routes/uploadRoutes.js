@@ -97,4 +97,88 @@ router.post("/avatar", protect, (req, res, next) => {
     }
 });
 
+// DELETE /api/upload/avatar — Xóa avatar, reset về default
+router.delete("/avatar", protect, async (req, res) => {
+    try {
+        const currentUser = await User.findById(req.user.id);
+
+        // Xóa avatar trên Cloudinary nếu có (không xóa nếu đang dùng system avatar hoặc default)
+        if (currentUser?.avatar && currentUser.avatar.includes("res.cloudinary.com")) {
+            try {
+                await cloudinary.uploader.destroy(`todoz-avatars/avatar_${req.user.id}`, {
+                    resource_type: "image"
+                });
+            } catch (e) {
+                console.error("Cloudinary delete error:", e);
+            }
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { avatar: "/default_avatar.jpg" },
+            { new: true }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Đã xóa avatar",
+            user
+        });
+    } catch (error) {
+        console.error("Delete avatar error:", error);
+        res.status(500).json({ success: false, message: "Lỗi xóa avatar" });
+    }
+});
+
+// PUT /api/upload/avatar/system — Chọn avatar hệ thống
+router.put("/avatar/system", protect, async (req, res) => {
+    try {
+        const { avatarId } = req.body;
+
+        // Danh sách avatar hệ thống hợp lệ
+        const systemAvatars = [
+            "cat", "dog", "fox", "panda", "koala",
+            "owl", "penguin", "rabbit", "bear", "unicorn",
+            "astronaut", "robot"
+        ];
+
+        if (!avatarId || !systemAvatars.includes(avatarId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Avatar không hợp lệ"
+            });
+        }
+
+        // Xóa avatar cũ trên Cloudinary nếu có
+        const currentUser = await User.findById(req.user.id);
+        if (currentUser?.avatar && currentUser.avatar.includes("res.cloudinary.com")) {
+            try {
+                await cloudinary.uploader.destroy(`todoz-avatars/avatar_${req.user.id}`, {
+                    resource_type: "image"
+                });
+            } catch (e) {
+                console.error("Cloudinary delete error:", e);
+            }
+        }
+
+        const avatarPath = `/avatars/system/${avatarId}.svg`;
+
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { avatar: avatarPath },
+            { new: true }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Cập nhật avatar thành công",
+            avatar: avatarPath,
+            user
+        });
+    } catch (error) {
+        console.error("System avatar error:", error);
+        res.status(500).json({ success: false, message: "Lỗi cập nhật avatar" });
+    }
+});
+
 export default router;

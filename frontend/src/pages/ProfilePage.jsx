@@ -87,6 +87,9 @@ const ProfilePage = () => {
     confirm: false,
   });
 
+  // Avatar picker
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+
   // Delete account
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -138,9 +141,57 @@ const ProfilePage = () => {
     }
   };
 
-  // Avatar upload
+  // System avatars list
+  const systemAvatars = [
+    { id: "cat", label: "Mèo" },
+    { id: "dog", label: "Chó" },
+    { id: "fox", label: "Cáo" },
+    { id: "panda", label: "Gấu trúc" },
+    { id: "koala", label: "Koala" },
+    { id: "owl", label: "Cú" },
+    { id: "penguin", label: "Chim cánh cụt" },
+    { id: "rabbit", label: "Thỏ" },
+    { id: "bear", label: "Gấu" },
+    { id: "unicorn", label: "Kỳ lân" },
+    { id: "astronaut", label: "Phi hành gia" },
+    { id: "robot", label: "Robot" },
+  ];
+
+  // Avatar picker — open dialog
   const handleAvatarClick = () => {
-    fileInputRef.current?.click();
+    setAvatarDialogOpen(true);
+  };
+
+  // Delete avatar — reset to default
+  const handleDeleteAvatar = async () => {
+    try {
+      setUploadingAvatar(true);
+      await api.delete("/upload/avatar");
+      toast.success("Đã xóa avatar");
+      await checkAuth();
+      await fetchProfile();
+      setAvatarDialogOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi xóa avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // Select system avatar
+  const handleSystemAvatar = async (avatarId) => {
+    try {
+      setUploadingAvatar(true);
+      await api.put("/upload/avatar/system", { avatarId });
+      toast.success("Cập nhật avatar thành công");
+      await checkAuth();
+      await fetchProfile();
+      setAvatarDialogOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi cập nhật avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleAvatarChange = async (e) => {
@@ -168,10 +219,9 @@ const ProfilePage = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Cập nhật avatar thành công");
-      // Force re-fetch user data to update avatar everywhere
       await checkAuth();
-      // Refetch profile to update avatar display immediately
       await fetchProfile();
+      setAvatarDialogOpen(false);
     } catch (err) {
       toast.error(err.response?.data?.message || "Lỗi upload avatar");
     } finally {
@@ -339,6 +389,111 @@ const ProfilePage = () => {
                       className="hidden"
                       onChange={handleAvatarChange}
                     />
+
+                    {/* Avatar Picker Dialog */}
+                    <Dialog open={avatarDialogOpen} onOpenChange={setAvatarDialogOpen}>
+                      <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-sm border-violet-100/50">
+                        <DialogHeader>
+                          <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                            <Camera className="w-5 h-5 text-violet-500" />
+                            Đổi avatar
+                          </DialogTitle>
+                        </DialogHeader>
+
+                        <div className="space-y-5 py-2">
+                          {/* Current avatar preview */}
+                          <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-violet-200/60 shadow-md">
+                              <img
+                                src={avatarUrl}
+                                alt="Current avatar"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "/default_avatar.jpg";
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-foreground">Avatar hiện tại</p>
+                              <p className="text-xs text-slate-500">Chọn hành động bên dưới</p>
+                            </div>
+                          </div>
+
+                          {/* Upload from device */}
+                          <div>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start gap-3 h-11 border-violet-200/60 hover:bg-violet-50 hover:border-violet-300 cursor-pointer"
+                              onClick={() => {
+                                fileInputRef.current?.click();
+                              }}
+                              disabled={uploadingAvatar}
+                            >
+                              <Download className="w-4 h-4 text-violet-500" />
+                              <span>Tải lên từ máy</span>
+                              <span className="ml-auto text-xs text-slate-400">JPEG, PNG, WebP... tối đa 5MB</span>
+                            </Button>
+                          </div>
+
+                          {/* System avatars */}
+                          <div>
+                            <p className="text-sm font-medium text-foreground mb-3">Chọn avatar hệ thống</p>
+                            <div className="grid grid-cols-4 gap-2.5">
+                              {systemAvatars.map((sa) => {
+                                const isActive = user?.avatar === `/avatars/system/${sa.id}.svg`;
+                                return (
+                                  <button
+                                    key={sa.id}
+                                    onClick={() => handleSystemAvatar(sa.id)}
+                                    disabled={uploadingAvatar}
+                                    className={`relative flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all cursor-pointer hover:scale-105 ${
+                                      isActive
+                                        ? "border-violet-500 bg-violet-50 shadow-md"
+                                        : "border-transparent hover:border-violet-200 hover:bg-violet-50/50"
+                                    }`}
+                                    title={sa.label}
+                                  >
+                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100">
+                                      <img
+                                        src={`/avatars/system/${sa.id}.svg`}
+                                        alt={sa.label}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 font-medium leading-tight">{sa.label}</span>
+                                    {isActive && (
+                                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 rounded-full flex items-center justify-center">
+                                        <CheckCircle2 className="w-3 h-3 text-white" />
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Delete / reset avatar */}
+                          {user?.avatar && user.avatar !== "/default_avatar.jpg" && (
+                            <div className="pt-2 border-t border-slate-100">
+                              <Button
+                                variant="ghost"
+                                className="w-full justify-start gap-3 h-10 text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                                onClick={handleDeleteAvatar}
+                                disabled={uploadingAvatar}
+                              >
+                                {uploadingAvatar ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                                <span>Xóa avatar (dùng mặc định)</span>
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
 
                   {/* Info */}
