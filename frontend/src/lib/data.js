@@ -6,6 +6,20 @@ export const FilterType = {
   cancelled: "Đã hủy",
 };
 
+export const PriorityType = {
+  all: "Tất cả",
+  high: "Cao",
+  medium: "Trung bình",
+  low: "Thấp",
+};
+
+export const priorityOptions = [
+  { value: "all", label: "Tất cả" },
+  { value: "high", label: "Cao" },
+  { value: "medium", label: "Trung bình" },
+  { value: "low", label: "Thấp" },
+];
+
 export const options = [
   {
     value: "today",

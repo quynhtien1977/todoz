@@ -1,2 +1,8 @@
 .env
 node_modules/
+docs/
+README.md
+skills-lock.json
+.agents/
+skills
+.vscode/
