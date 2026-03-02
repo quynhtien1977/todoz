@@ -1,5 +1,35 @@
 import Music from "../models/Music.js";
 import { extractAndUpload, getVideoInfo, deleteFromCloudinary } from "../utils/youtubeService.js";
+import cloudinary from "../config/cloudinary.js";
+
+/**
+ * Xóa thumbnail/avatar nhạc trên Cloudinary nếu là custom upload
+ * Custom uploads nằm ở folder todoz-music-avatars (resource_type: image)
+ * YouTube thumbnails (img.youtube.com / i.ytimg.com) KHÔNG cần xóa
+ */
+export const deleteCustomThumbnail = async (thumbnailUrl) => {
+    if (!thumbnailUrl) {
+        console.log("[Cloudinary] Skip delete thumbnail: URL is empty");
+        return;
+    }
+    if (!thumbnailUrl.includes("res.cloudinary.com")) {
+        console.log("[Cloudinary] Skip delete thumbnail: not a Cloudinary URL -", thumbnailUrl.substring(0, 60));
+        return;
+    }
+    // Tìm public_id từ URL: todoz-music-avatars/music_xxx hoặc todoz-music-avatars/temp_xxx
+    const match = thumbnailUrl.match(/todoz-music-avatars\/([^.]+)/);
+    if (!match) {
+        console.log("[Cloudinary] Skip delete thumbnail: no todoz-music-avatars in URL -", thumbnailUrl.substring(0, 80));
+        return;
+    }
+    const publicId = `todoz-music-avatars/${match[1]}`;
+    try {
+        const result = await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+        console.log(`[Cloudinary] Deleted thumbnail: ${publicId} → result:`, result?.result || result);
+    } catch (err) {
+        console.error("[Cloudinary] Error deleting thumbnail:", err.message);
+    }
+};
 
 // Tier limits
 const TIER_LIMITS = {
@@ -237,7 +267,15 @@ export const updateMusic = async (req, res) => {
         if (name !== undefined) updates.name = name;
         if (icon !== undefined) updates.icon = icon;
         if (category !== undefined) updates.category = category;
-        if (thumbnail !== undefined) updates.thumbnail = thumbnail || null;
+        if (thumbnail !== undefined) {
+            // Nếu đổi thumbnail → xóa custom thumbnail cũ trên Cloudinary
+            const oldThumb = music.thumbnail;
+            const newThumb = thumbnail || null;
+            if (oldThumb && oldThumb !== newThumb) {
+                await deleteCustomThumbnail(oldThumb);
+            }
+            updates.thumbnail = newThumb;
+        }
 
         const updatedMusic = await Music.findByIdAndUpdate(
             req.params.id,
@@ -279,10 +317,15 @@ export const deleteMusic = async (req, res) => {
             return res.status(403).json({ success: false, message: "Bạn không có quyền xóa bài này" });
         }
 
-        // Xóa file trên Cloudinary nếu có
+        // Xóa audio trên Cloudinary (resource_type: video)
+        console.log(`[deleteMusic] id=${music._id}, cloudinaryId=${music.cloudinaryId || 'none'}, thumbnail=${music.thumbnail ? music.thumbnail.substring(0, 60) + '...' : 'none'}`);
         if (music.cloudinaryId) {
-            await deleteFromCloudinary(music.cloudinaryId);
+            const audioResult = await deleteFromCloudinary(music.cloudinaryId);
+            console.log(`[deleteMusic] Audio delete result:`, audioResult?.result || audioResult);
         }
+
+        // Xóa custom thumbnail trên Cloudinary (resource_type: image)
+        await deleteCustomThumbnail(music.thumbnail);
 
         await Music.findByIdAndDelete(req.params.id);
         res.status(200).json({ success: true, message: "Đã xóa bài hát" });

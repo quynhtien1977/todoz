@@ -4,6 +4,7 @@ import cloudinary from "../config/cloudinary.js";
 import { protect } from "../middleware/authMiddleware.js";
 import User from "../models/User.js";
 import Music from "../models/Music.js";
+import { deleteCustomThumbnail } from "../controllers/musicController.js";
 
 const router = express.Router();
 
@@ -240,6 +241,11 @@ router.post("/music-avatar/:musicId", protect, (req, res, next) => {
 
         if (!req.file) {
             return res.status(400).json({ success: false, message: "Vui lòng chọn file ảnh" });
+        }
+
+        // Xóa thumbnail cũ trên Cloudinary nếu có (tránh rác)
+        if (music.thumbnail) {
+            await deleteCustomThumbnail(music.thumbnail);
         }
 
         // Upload lên Cloudinary
