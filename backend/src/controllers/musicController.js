@@ -128,7 +128,7 @@ export const previewYouTube = async (req, res) => {
 // Thêm nhạc từ YouTube: extract audio → upload Cloudinary → tạo Music record
 export const addFromYouTube = async (req, res) => {
     try {
-        const { youtubeUrl, category, name, startTime, endTime } = req.body;
+        const { youtubeUrl, category, name, startTime, endTime, icon, useThumbnail } = req.body;
         const userId = req.user._id;
 
         if (!youtubeUrl) {
@@ -169,14 +169,14 @@ export const addFromYouTube = async (req, res) => {
         // Tạo Music record
         const music = new Music({
             name: name || result.title,
-            icon: "🎵",
+            icon: icon || "🎵",
             category: category || "other",
             type: "music",
             sourceType: "url",
             externalUrl: result.url,
             youtubeId: result.videoId,
             cloudinaryId: result.publicId,
-            thumbnail: result.thumbnail,
+            thumbnail: useThumbnail !== false ? result.thumbnail : null,
             duration: result.duration,
             userId,
             addedBy: userId.toString(),

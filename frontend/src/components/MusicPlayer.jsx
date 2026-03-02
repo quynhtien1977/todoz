@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X, Plus, Disc3, Clock, Trash2, Link, Crown, User, Scissors } from "lucide-react";
+import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X, Plus, Disc3, Clock, Trash2, Link, Crown, User, Scissors, Image, Sparkles, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
 import { useAuth } from "@/context/AuthContext";
@@ -30,6 +30,12 @@ const categoryOptions = [
   { value: "energetic", label: "Sôi động" },
   { value: "international", label: "Quốc tế" },
   { value: "other", label: "Khác" },
+];
+
+const musicEmojis = [
+  "🎵", "🎶", "🎧", "🎼", "🎸", "🎺", "🥁", "🎹",
+  "🎻", "🪕", "🔥", "✨", "💜", "🌙", "☕", "🚀",
+  "🌟", "🌈", "🦋", "🌺", "🌞", "💎", "🌊", "🌿",
 ];
 
 const MusicPlayer = () => {
@@ -70,6 +76,10 @@ const MusicPlayer = () => {
   // Trim state (khi bài > 5 phút)
   const [ytNeedTrim, setYtNeedTrim] = useState(false);
   const [ytTrimRange, setYtTrimRange] = useState([0, 300]);
+
+  // Avatar state: "thumbnail" (dùng ảnh YouTube) hoặc emoji string
+  const [ytAvatarType, setYtAvatarType] = useState("thumbnail");
+  const [ytIcon, setYtIcon] = useState("🎵");
 
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -290,6 +300,8 @@ const MusicPlayer = () => {
     setYtError("");
     setYtNeedTrim(false);
     setYtTrimRange([0, 300]);
+    setYtAvatarType("thumbnail");
+    setYtIcon("🎵");
   };
 
   const handleOpenYtDialog = () => {
@@ -352,6 +364,8 @@ const MusicPlayer = () => {
         youtubeUrl: ytUrl,
         category: ytCategory,
         name: ytName || undefined,
+        icon: ytAvatarType === "emoji" ? ytIcon : "🎵",
+        useThumbnail: ytAvatarType === "thumbnail",
       };
 
       if (ytNeedTrim) {
@@ -485,15 +499,51 @@ const MusicPlayer = () => {
 
               {/* Tier limit indicator khi ở tab "Của tôi" */}
               {selectedCategory === "mine" && user && (
-                <div className="flex items-center justify-between mb-3 px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Disc3 className="size-3.5 text-primary" />
-                    <span>{userMusicCount}/{maxSongs} bài</span>
+                <div className="mb-3 p-2.5 rounded-xl bg-primary/5 border border-primary/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-medium">
+                      <Disc3 className="size-3.5 text-primary" />
+                      <span>Bộ sưu tập của bạn</span>
+                    </div>
+                    <span className="text-xs font-semibold text-primary">{userMusicCount}/{maxSongs}</span>
                   </div>
+                  <Progress value={maxSongs > 0 ? (userMusicCount / maxSongs) * 100 : 0} className="h-1.5" />
                   {user.role === "free" && (
-                    <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/30 text-amber-600">
-                      <Crown className="size-3" /> Nâng cấp PRO
-                    </Badge>
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-[10px] text-muted-foreground">Nâng cấp để thêm tới 15 bài</span>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-6 text-[10px] gap-1 border-amber-500/30 text-amber-600 hover:bg-amber-500/10 cursor-pointer px-2"
+                        onClick={() => window.location.href = "/profile"}
+                      >
+                        <Crown className="size-3" />
+                        Nâng cấp PRO
+                        <ArrowUpRight className="size-2.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tier usage bar (hiển thị ở tất cả tab khi đã login + có nhạc) */}
+              {selectedCategory !== "mine" && user && maxSongs > 0 && (
+                <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/50">
+                  <Disc3 className="size-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <Progress value={(userMusicCount / maxSongs) * 100} className="h-1" />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">{userMusicCount}/{maxSongs}</span>
+                  {user.role === "free" && userMusicCount >= maxSongs && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-5 text-[10px] gap-0.5 text-amber-600 hover:text-amber-700 cursor-pointer px-1.5"
+                      onClick={() => window.location.href = "/profile"}
+                    >
+                      <Crown className="size-2.5" />
+                      PRO
+                    </Button>
                   )}
                 </div>
               )}
@@ -728,20 +778,70 @@ const MusicPlayer = () => {
                   />
                 </div>
 
-                {/* Thể loại */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Thể loại</label>
-                  <Select value={ytCategory} onValueChange={setYtCategory} disabled={ytExtracting}>
-                    <SelectTrigger className="cursor-pointer">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value} className="cursor-pointer">{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Thể loại + Avatar row */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Thể loại */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Thể loại</label>
+                    <Select value={ytCategory} onValueChange={setYtCategory} disabled={ytExtracting}>
+                      <SelectTrigger className="cursor-pointer">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoryOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value} className="cursor-pointer">{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Avatar nhạc */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Ảnh đại diện</label>
+                    <Select value={ytAvatarType} onValueChange={setYtAvatarType} disabled={ytExtracting}>
+                      <SelectTrigger className="cursor-pointer">
+                        <SelectValue>
+                          {ytAvatarType === "thumbnail" ? (
+                            <span className="flex items-center gap-1.5"><Image className="size-3.5" />Ảnh YouTube</span>
+                          ) : (
+                            <span className="flex items-center gap-1.5">{ytIcon} Emoji</span>
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="thumbnail" className="cursor-pointer">
+                          <span className="flex items-center gap-1.5"><Image className="size-3.5" />Ảnh YouTube</span>
+                        </SelectItem>
+                        <SelectItem value="emoji" className="cursor-pointer">
+                          <span className="flex items-center gap-1.5"><Sparkles className="size-3.5" />Chọn Emoji</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                {/* Emoji picker khi chọn "emoji" */}
+                {ytAvatarType === "emoji" && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <label className="text-xs font-medium text-muted-foreground">Chọn emoji</label>
+                    <div className="flex flex-wrap gap-1 p-2 rounded-lg bg-muted/30 border max-h-20 overflow-y-auto">
+                      {musicEmojis.map((emoji) => (
+                        <button 
+                          key={emoji}
+                          onClick={() => setYtIcon(emoji)}
+                          className={cn(
+                            "size-8 rounded-md flex items-center justify-center text-lg cursor-pointer transition-all hover:scale-110",
+                            ytIcon === emoji 
+                              ? "bg-primary/20 ring-2 ring-primary scale-110" 
+                              : "hover:bg-muted"
+                          )}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Audio Trimmer (khi bài > 5 phút) */}
                 {ytNeedTrim && (
@@ -784,16 +884,27 @@ const MusicPlayer = () => {
                 )}
 
                 {/* Tier info */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <Disc3 className="size-3.5" />
-                    {userMusicCount}/{maxSongs} bài đã dùng
-                  </span>
-                  {user?.role === "free" && (
-                    <span className="flex items-center gap-1 text-amber-600">
-                      <Crown className="size-3" />
-                      PRO = 15 bài
+                <div className="space-y-1.5 p-2.5 rounded-lg bg-muted/30 border border-border/50">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Disc3 className="size-3.5" />
+                      Bài đã dùng
                     </span>
+                    <span className="font-semibold text-primary">{userMusicCount}/{maxSongs}</span>
+                  </div>
+                  <Progress value={maxSongs > 0 ? (userMusicCount / maxSongs) * 100 : 0} className="h-1.5" />
+                  {user?.role === "free" && (
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-[10px] text-muted-foreground">Free: 1 bài • PRO: 15 bài</span>
+                      <button 
+                        onClick={() => { setYtDialogOpen(false); window.location.href = "/profile"; }}
+                        className="text-[10px] flex items-center gap-0.5 text-amber-600 hover:text-amber-700 font-medium cursor-pointer"
+                      >
+                        <Crown className="size-2.5" />
+                        Nâng cấp
+                        <ArrowUpRight className="size-2.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
