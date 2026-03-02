@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X, Plus, Disc3, Clock, Trash2, Link, Crown, User, Scissors, Image, Sparkles, ArrowUpRight } from "lucide-react";
+import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X, Plus, Disc3, Clock, Trash2, Link, Crown, User, Scissors, Image, Sparkles, ArrowUpRight, Pencil, MoreHorizontal, Check, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
 import { useAuth } from "@/context/AuthContext";
@@ -83,6 +83,15 @@ const MusicPlayer = () => {
 
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // Edit music dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editMusic, setEditMusic] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editIcon, setEditIcon] = useState("🎵");
+  const [editCategory, setEditCategory] = useState("other");
+  const [editAvatarType, setEditAvatarType] = useState("thumbnail");
+  const [editLoading, setEditLoading] = useState(false);
 
   const musicRef = useRef(null);
   const sfxRefs = useRef({});
@@ -425,6 +434,40 @@ const MusicPlayer = () => {
     }
     setDeleteConfirm(null);
   };
+
+  // Edit music handlers
+  const handleOpenEdit = (music, e) => {
+    e?.stopPropagation();
+    setEditMusic(music);
+    setEditName(music.name);
+    setEditIcon(music.icon || "🎵");
+    setEditCategory(music.category || "other");
+    setEditAvatarType(music.thumbnail ? "thumbnail" : "emoji");
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editMusic || !editName.trim()) return;
+    setEditLoading(true);
+    try {
+      const body = {
+        name: editName.trim(),
+        icon: editAvatarType === "emoji" ? editIcon : "🎵",
+        category: editCategory,
+        thumbnail: editAvatarType === "thumbnail" ? editMusic.thumbnail : null,
+      };
+      const res = await api.put(`/music/${editMusic._id}`, body);
+      const updated = res.data.data;
+      setMusicList(prev => prev.map(m => m._id === editMusic._id ? updated : m));
+      if (currentMusic?._id === editMusic._id) setCurrentMusic(updated);
+      toast.success("Đã cập nhật bài hát");
+      setEditDialogOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể cập nhật");
+    } finally {
+      setEditLoading(false);
+    }
+  };
   
   const isAnythingPlaying = isPlaying || Object.values(activeSfx).some(Boolean);
   const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -499,34 +542,55 @@ const MusicPlayer = () => {
 
               {/* Tier limit indicator khi ở tab "Của tôi" */}
               {selectedCategory === "mine" && user && (
-                <div className="mb-3 p-2.5 rounded-xl bg-primary/5 border border-primary/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-medium">
-                      <Disc3 className="size-3.5 text-primary" />
-                      <span>Bộ sưu tập của bạn</span>
+                <div className="mb-3 rounded-xl overflow-hidden border border-primary/20 bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
+                  {/* Header */}
+                  <div className="p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                          <Disc3 className="size-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold">Bộ sưu tập</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {user.role === "free" ? "Gói Free" : user.role === "pro" ? "Gói PRO" : "Admin"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-primary">{userMusicCount}<span className="text-xs font-normal text-muted-foreground">/{maxSongs}</span></p>
+                        <p className="text-[10px] text-muted-foreground">bài hát</p>
+                      </div>
                     </div>
-                    <span className="text-xs font-semibold text-primary">{userMusicCount}/{maxSongs}</span>
+                    <Progress value={maxSongs > 0 ? (userMusicCount / maxSongs) * 100 : 0} className="h-2" />
+                    {userMusicCount >= maxSongs && (
+                      <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                        <Zap className="size-3" />Đã đạt giới hạn
+                      </p>
+                    )}
                   </div>
-                  <Progress value={maxSongs > 0 ? (userMusicCount / maxSongs) * 100 : 0} className="h-1.5" />
+                  {/* Upgrade CTA cho Free user */}
                   {user.role === "free" && (
-                    <div className="flex items-center justify-between pt-0.5">
-                      <span className="text-[10px] text-muted-foreground">Nâng cấp để thêm tới 15 bài</span>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-6 text-[10px] gap-1 border-amber-500/30 text-amber-600 hover:bg-amber-500/10 cursor-pointer px-2"
+                    <div className="px-3 pb-3">
+                      <button
                         onClick={() => window.location.href = "/profile"}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-linear-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all cursor-pointer group"
                       >
-                        <Crown className="size-3" />
-                        Nâng cấp PRO
-                        <ArrowUpRight className="size-2.5" />
-                      </Button>
+                        <div className="size-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                          <Crown className="size-4 text-amber-500" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-xs font-semibold text-amber-600">Nâng cấp PRO</p>
+                          <p className="text-[10px] text-muted-foreground">Thêm tới 15 bài hát vào bộ sưu tập</p>
+                        </div>
+                        <ArrowUpRight className="size-4 text-amber-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      </button>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Tier usage bar (hiển thị ở tất cả tab khi đã login + có nhạc) */}
+              {/* Compact tier bar ở các tab khác */}
               {selectedCategory !== "mine" && user && maxSongs > 0 && (
                 <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/50">
                   <Disc3 className="size-3.5 text-muted-foreground shrink-0" />
@@ -535,15 +599,12 @@ const MusicPlayer = () => {
                   </div>
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">{userMusicCount}/{maxSongs}</span>
                   {user.role === "free" && userMusicCount >= maxSongs && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-5 text-[10px] gap-0.5 text-amber-600 hover:text-amber-700 cursor-pointer px-1.5"
+                    <button
                       onClick={() => window.location.href = "/profile"}
+                      className="text-[10px] flex items-center gap-0.5 text-amber-600 hover:text-amber-700 font-medium cursor-pointer whitespace-nowrap"
                     >
-                      <Crown className="size-2.5" />
-                      PRO
-                    </Button>
+                      <Crown className="size-2.5" />PRO
+                    </button>
                   )}
                 </div>
               )}
@@ -555,48 +616,137 @@ const MusicPlayer = () => {
               ) : error ? (
                 <div className="text-center py-8 text-sm text-destructive">{error}</div>
               ) : (
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {filteredMusic.map((music) => (
-                    <div key={music._id} onClick={() => handleMusicToggle(music)} className={cn("relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer hover:scale-105 group", currentMusic?._id === music._id ? "bg-primary/20 border-primary text-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>
-                      {/* Nút xóa cho nhạc cá nhân */}
-                      {music.isOwner && (
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(music); }}
-                          className="absolute -top-1 -right-1 size-5 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
-                        >
-                          <Trash2 className="size-3" />
-                        </button>
-                      )}
-                      {/* Thumbnail YouTube hoặc icon */}
-                      {music.thumbnail ? (
-                        <img src={music.thumbnail} alt={music.name} className="size-8 rounded object-cover" />
-                      ) : music.iconPath ? (
-                        <img src={music.iconPath} alt={music.name} className="size-8 object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
-                      ) : null}
-                      <span className={cn("text-3xl", (music.iconPath || music.thumbnail) && "hidden")}>{music.icon}</span>
-                      <span className="text-[10px] text-center truncate w-full mt-1">{music.name}</span>
-                      {/* Badge "Của tôi" */}
-                      {music.isOwner && selectedCategory !== "mine" && (
-                        <div className="absolute top-0.5 left-0.5">
-                          <div className="size-1.5 rounded-full bg-primary" />
+                <>
+                {/* List view cho "Của tôi" — với edit/delete inline */}
+                {selectedCategory === "mine" ? (
+                  <div className="space-y-1.5">
+                    {filteredMusic.map((music) => (
+                      <div
+                        key={music._id}
+                        onClick={() => handleMusicToggle(music)}
+                        className={cn(
+                          "flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer group",
+                          currentMusic?._id === music._id
+                            ? "bg-primary/15 border-primary/40 shadow-[0_0_12px_-3px] shadow-primary/20"
+                            : "bg-muted/20 border-transparent hover:bg-muted/40"
+                        )}
+                      >
+                        {/* Avatar */}
+                        <div className="size-10 rounded-lg overflow-hidden shrink-0 bg-muted/30 flex items-center justify-center">
+                          {music.thumbnail ? (
+                            <img src={music.thumbnail} alt="" className="size-full object-cover" />
+                          ) : (
+                            <span className="text-xl">{music.icon || "🎵"}</span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                  {filteredMusic.length === 0 && (
-                    <div className="col-span-full text-center text-sm text-muted-foreground py-8">
-                      {selectedCategory === "mine" ? (
-                        <div className="space-y-2">
-                          <Disc3 className="size-8 mx-auto text-muted-foreground/40" />
-                          <p>Chưa có nhạc cá nhân</p>
-                          <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer" onClick={handleOpenYtDialog}>
-                            <Plus className="size-3.5" />Thêm từ YouTube
-                          </Button>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{music.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-muted-foreground/20">
+                              {categoryOptions.find(c => c.value === music.category)?.label || music.category}
+                            </Badge>
+                            {music.duration > 0 && (
+                              <span className="text-[10px] text-muted-foreground">{formatTime(music.duration)}</span>
+                            )}
+                          </div>
                         </div>
-                      ) : "Không tìm thấy bài hát"}
-                    </div>
-                  )}
-                </div>
+                        {/* Playing indicator */}
+                        {currentMusic?._id === music._id && isPlaying && (
+                          <div className="flex items-center gap-0.5 mr-1">
+                            <div className="w-0.5 h-3 bg-primary rounded-full animate-pulse" />
+                            <div className="w-0.5 h-4 bg-primary rounded-full animate-pulse [animation-delay:150ms]" />
+                            <div className="w-0.5 h-2 bg-primary rounded-full animate-pulse [animation-delay:300ms]" />
+                          </div>
+                        )}
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => handleOpenEdit(music, e)}
+                                className="size-7 rounded-md flex items-center justify-center hover:bg-muted cursor-pointer"
+                              >
+                                <Pencil className="size-3.5 text-muted-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top"><p className="text-xs">Chỉnh sửa</p></TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(music); }}
+                                className="size-7 rounded-md flex items-center justify-center hover:bg-destructive/10 cursor-pointer"
+                              >
+                                <Trash2 className="size-3.5 text-destructive/70" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top"><p className="text-xs">Xóa</p></TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredMusic.length === 0 && (
+                      <div className="text-center py-10 space-y-3">
+                        <div className="size-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+                          <Disc3 className="size-8 text-primary/40" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Chưa có bài hát nào</p>
+                          <p className="text-xs text-muted-foreground mt-1">Thêm nhạc từ YouTube vào bộ sưu tập</p>
+                        </div>
+                        <Button variant="gradient" size="sm" className="gap-1.5 cursor-pointer" onClick={handleOpenYtDialog}>
+                          <Plus className="size-3.5" />Thêm từ YouTube
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Grid view cho các tab khác */
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    {filteredMusic.map((music) => (
+                      <div key={music._id} onClick={() => handleMusicToggle(music)} className={cn("relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer hover:scale-105 group", currentMusic?._id === music._id ? "bg-primary/20 border-primary text-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>
+                        {/* Action buttons cho nhạc cá nhân */}
+                        {music.isOwner && (
+                          <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <button
+                              onClick={(e) => handleOpenEdit(music, e)}
+                              className="size-5 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center cursor-pointer"
+                            >
+                              <Pencil className="size-2.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(music); }}
+                              className="size-5 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center cursor-pointer"
+                            >
+                              <Trash2 className="size-2.5" />
+                            </button>
+                          </div>
+                        )}
+                        {/* Thumbnail YouTube hoặc icon */}
+                        {music.thumbnail ? (
+                          <img src={music.thumbnail} alt={music.name} className="size-8 rounded object-cover" />
+                        ) : music.iconPath ? (
+                          <img src={music.iconPath} alt={music.name} className="size-8 object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
+                        ) : null}
+                        <span className={cn("text-3xl", (music.iconPath || music.thumbnail) && "hidden")}>{music.icon}</span>
+                        <span className="text-[10px] text-center truncate w-full mt-1">{music.name}</span>
+                        {/* Badge "Của tôi" */}
+                        {music.isOwner && selectedCategory !== "mine" && (
+                          <div className="absolute top-0.5 left-0.5">
+                            <div className="size-1.5 rounded-full bg-primary" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {filteredMusic.length === 0 && (
+                      <div className="col-span-full text-center text-sm text-muted-foreground py-8">
+                        Không tìm thấy bài hát
+                      </div>
+                    )}
+                  </div>
+                )}
+                </>
               )}
 
               {/* Now Playing */}
@@ -671,7 +821,7 @@ const MusicPlayer = () => {
                         <div className="overflow-hidden">
                           <div className="px-3 pb-3 pt-1 border-t border-success/20">
                             <div className="flex items-center gap-1 mb-1"><Volume2 className="size-3 text-success" /><span className="text-[9px] text-success ml-auto">{sfxVolumes[sfx._id] || 50}%</span></div>
-                            <Slider value={[sfxVolumes[sfx._id] || 50]} onValueChange={(value) => handleSfxVolumeChange(sfx._id, value)} max={100} step={1} className="[&_[data-slot=slider-range]]:bg-success [&_[data-slot=slider-thumb]]:border-success" />
+                            <Slider value={[sfxVolumes[sfx._id] || 50]} onValueChange={(value) => handleSfxVolumeChange(sfx._id, value)} max={100} step={1} className="**:data-[slot=slider-range]:bg-success **:data-[slot=slider-thumb]:border-success" />
                           </div>
                         </div>
                       </div>
@@ -883,29 +1033,47 @@ const MusicPlayer = () => {
                   </div>
                 )}
 
-                {/* Tier info */}
-                <div className="space-y-1.5 p-2.5 rounded-lg bg-muted/30 border border-border/50">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Disc3 className="size-3.5" />
-                      Bài đã dùng
-                    </span>
-                    <span className="font-semibold text-primary">{userMusicCount}/{maxSongs}</span>
-                  </div>
-                  <Progress value={maxSongs > 0 ? (userMusicCount / maxSongs) * 100 : 0} className="h-1.5" />
-                  {user?.role === "free" && (
-                    <div className="flex items-center justify-between pt-0.5">
-                      <span className="text-[10px] text-muted-foreground">Free: 1 bài • PRO: 15 bài</span>
+                {/* Tier info — glassmorphism style */}
+                <div className={cn(
+                  "rounded-xl overflow-hidden border transition-all",
+                  userMusicCount >= maxSongs
+                    ? "border-amber-500/30 bg-amber-500/5"
+                    : "border-primary/20 bg-primary/5"
+                )}>
+                  <div className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-medium">
+                        <Disc3 className="size-3.5 text-primary" />
+                        Bộ sưu tập
+                      </span>
+                      <span className={cn(
+                        "text-lg font-bold tabular-nums",
+                        userMusicCount >= maxSongs ? "text-amber-600" : "text-primary"
+                      )}>
+                        {userMusicCount}<span className="text-xs font-normal text-muted-foreground">/{maxSongs}</span>
+                      </span>
+                    </div>
+                    <Progress 
+                      value={maxSongs > 0 ? (userMusicCount / maxSongs) * 100 : 0} 
+                      className={cn("h-1.5", userMusicCount >= maxSongs && "[&>div]:bg-amber-500")} 
+                    />
+                    {userMusicCount >= maxSongs && (
+                      <div className="flex items-center gap-2 pt-1 animate-in fade-in duration-200">
+                        <Zap className="size-3.5 text-amber-600 shrink-0" />
+                        <span className="text-[11px] text-amber-600 font-medium">Đã đạt giới hạn!</span>
+                      </div>
+                    )}
+                    {user?.role === "free" && (
                       <button 
                         onClick={() => { setYtDialogOpen(false); window.location.href = "/profile"; }}
-                        className="text-[10px] flex items-center gap-0.5 text-amber-600 hover:text-amber-700 font-medium cursor-pointer"
+                        className="w-full flex items-center justify-center gap-1.5 p-2 rounded-lg bg-linear-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all text-xs font-medium text-amber-700 dark:text-amber-400 cursor-pointer mt-1"
                       >
-                        <Crown className="size-2.5" />
-                        Nâng cấp
-                        <ArrowUpRight className="size-2.5" />
+                        <Crown className="size-3.5" />
+                        Nâng cấp PRO — 15 bài hát
+                        <ArrowUpRight className="size-3" />
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -955,6 +1123,131 @@ const MusicPlayer = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Music Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { setEditDialogOpen(false); setEditMusic(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="size-4" />
+              Chỉnh sửa bài hát
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Preview */}
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border">
+              <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/30 flex items-center justify-center">
+                {editAvatarType === "thumbnail" && editMusic?.thumbnail ? (
+                  <img src={editMusic.thumbnail} alt="" className="size-full object-cover" />
+                ) : (
+                  <span className="text-2xl">{editIcon || "🎵"}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{editName || "Chưa đặt tên"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {categoryOptions.find(c => c.value === editCategory)?.label || editCategory}
+                </p>
+              </div>
+            </div>
+
+            {/* Tên bài hát */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tên bài hát</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Nhập tên bài hát..."
+                maxLength={100}
+              />
+            </div>
+
+            {/* Thể loại */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Thể loại</label>
+              <Select value={editCategory} onValueChange={setEditCategory}>
+                <SelectTrigger className="cursor-pointer">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value} className="cursor-pointer">
+                      {cat.icon} {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Avatar */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ảnh đại diện</label>
+              {editMusic?.thumbnail && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditAvatarType("thumbnail")}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 p-2.5 rounded-lg border-2 transition-all cursor-pointer",
+                      editAvatarType === "thumbnail" ? "border-primary bg-primary/10" : "border-muted hover:border-muted-foreground/30"
+                    )}
+                  >
+                    <img src={editMusic.thumbnail} alt="" className="size-8 rounded object-cover" />
+                    <span className="text-xs font-medium">YouTube</span>
+                    {editAvatarType === "thumbnail" && <Check className="size-3.5 text-primary ml-auto" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditAvatarType("emoji")}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 p-2.5 rounded-lg border-2 transition-all cursor-pointer",
+                      editAvatarType === "emoji" ? "border-primary bg-primary/10" : "border-muted hover:border-muted-foreground/30"
+                    )}
+                  >
+                    <span className="text-2xl">{editIcon || "🎵"}</span>
+                    <span className="text-xs font-medium">Emoji</span>
+                    {editAvatarType === "emoji" && <Check className="size-3.5 text-primary ml-auto" />}
+                  </button>
+                </div>
+              )}
+
+              {/* Emoji picker */}
+              {(editAvatarType === "emoji" || !editMusic?.thumbnail) && (
+                <div className="grid grid-cols-8 gap-1.5 p-2 rounded-lg bg-muted/20 border max-h-[120px] overflow-y-auto">
+                  {musicEmojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setEditIcon(emoji)}
+                      className={cn(
+                        "size-8 rounded-md flex items-center justify-center text-lg transition-all cursor-pointer",
+                        editIcon === emoji ? "bg-primary/20 scale-110 ring-2 ring-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => { setEditDialogOpen(false); setEditMusic(null); }} className="cursor-pointer">
+              Hủy
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleSaveEdit} 
+              disabled={editLoading || !editName.trim()} 
+              className="gap-1.5 cursor-pointer"
+            >
+              {editLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              Lưu thay đổi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

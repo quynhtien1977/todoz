@@ -213,27 +213,45 @@ export const addFromYouTube = async (req, res) => {
     }
 };
 
-// Cập nhật nhạc
+// Cập nhật nhạc (chỉ owner hoặc admin)
 export const updateMusic = async (req, res) => {
     try {
-        const { name, icon, category, type, sourceType, localPath, externalUrl } = req.body;
+        const { name, icon, category, thumbnail } = req.body;
+        const music = await Music.findById(req.params.id);
         
-        let youtubeId = null;
-        if (sourceType === 'url' && externalUrl) {
-            youtubeId = extractYoutubeId(externalUrl);
-        }
-        
-        const updatedMusic = await Music.findByIdAndUpdate(
-            req.params.id,
-            { name, icon, category, type, sourceType, localPath, externalUrl, youtubeId },
-            { new: true, runValidators: true }
-        );
-        
-        if (!updatedMusic) {
+        if (!music) {
             return res.status(404).json({ success: false, message: "Music not found" });
         }
-        
-        res.status(200).json({ success: true, data: updatedMusic });
+
+        const userId = req.user._id;
+        const isOwner = music.userId?.toString() === userId.toString();
+        const isAdmin = req.user.role === "admin";
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ success: false, message: "Bạn không có quyền chỉnh sửa bài này" });
+        }
+
+        // Chỉ cho phép update các field an toàn
+        const updates = {};
+        if (name !== undefined) updates.name = name;
+        if (icon !== undefined) updates.icon = icon;
+        if (category !== undefined) updates.category = category;
+        if (thumbnail !== undefined) updates.thumbnail = thumbnail || null;
+
+        const updatedMusic = await Music.findByIdAndUpdate(
+            req.params.id,
+            updates,
+            { new: true, runValidators: true }
+        );
+
+        res.status(200).json({ 
+            success: true, 
+            data: {
+                ...updatedMusic.toObject(),
+                isOwner: true,
+                isFavorite: (updatedMusic.favoritedBy || []).some(id => id.toString() === userId.toString()),
+            }
+        });
     } catch (error) {
         console.error("Error updating music:", error);
         res.status(500).json({ success: false, message: "Server Error" });
