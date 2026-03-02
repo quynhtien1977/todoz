@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X, Plus, Disc3, Clock, Trash2, Link, Crown, User, Scissors, Image, Sparkles, ArrowUpRight, Pencil, MoreHorizontal, Check, Zap } from "lucide-react";
+import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X, Plus, Disc3, Clock, Trash2, Link, Crown, User, Scissors, Image, Sparkles, ArrowUpRight, Pencil, MoreHorizontal, Check, Zap, ImagePlus, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
 import { useAuth } from "@/context/AuthContext";
@@ -77,9 +77,11 @@ const MusicPlayer = () => {
   const [ytNeedTrim, setYtNeedTrim] = useState(false);
   const [ytTrimRange, setYtTrimRange] = useState([0, 300]);
 
-  // Avatar state: "thumbnail" (dùng ảnh YouTube) hoặc emoji string
+  // Avatar state: "thumbnail" | "emoji" | "custom" (upload ảnh)
   const [ytAvatarType, setYtAvatarType] = useState("thumbnail");
   const [ytIcon, setYtIcon] = useState("🎵");
+  const [ytCustomAvatar, setYtCustomAvatar] = useState(null); // File object
+  const [ytCustomPreview, setYtCustomPreview] = useState(""); // Preview URL
 
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -91,7 +93,12 @@ const MusicPlayer = () => {
   const [editIcon, setEditIcon] = useState("🎵");
   const [editCategory, setEditCategory] = useState("other");
   const [editAvatarType, setEditAvatarType] = useState("thumbnail");
+  const [editCustomAvatar, setEditCustomAvatar] = useState(null); // File object
+  const [editCustomPreview, setEditCustomPreview] = useState(""); // Preview URL
   const [editLoading, setEditLoading] = useState(false);
+
+  const ytFileInputRef = useRef(null);
+  const editFileInputRef = useRef(null);
 
   const musicRef = useRef(null);
   const sfxRefs = useRef({});
@@ -311,6 +318,10 @@ const MusicPlayer = () => {
     setYtTrimRange([0, 300]);
     setYtAvatarType("thumbnail");
     setYtIcon("🎵");
+    setYtCustomAvatar(null);
+    if (ytCustomPreview) URL.revokeObjectURL(ytCustomPreview);
+    setYtCustomPreview("");
+    if (ytFileInputRef.current) ytFileInputRef.current.value = "";
   };
 
   const handleOpenYtDialog = () => {
@@ -355,6 +366,50 @@ const MusicPlayer = () => {
     }
   };
 
+  // Handle file selection cho custom avatar
+  const handleAvatarFileChange = (file, type) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Chỉ chấp nhận file ảnh");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File quá lớn. Tối đa 5MB");
+      return;
+    }
+    if (type === "yt") {
+      if (ytCustomPreview) URL.revokeObjectURL(ytCustomPreview);
+      setYtCustomAvatar(file);
+      setYtCustomPreview(URL.createObjectURL(file));
+      setYtAvatarType("custom");
+    } else {
+      if (editCustomPreview) URL.revokeObjectURL(editCustomPreview);
+      setEditCustomAvatar(file);
+      setEditCustomPreview(URL.createObjectURL(file));
+      setEditAvatarType("custom");
+    }
+  };
+
+  // Upload custom avatar lên Cloudinary (cho bài đã có ID)
+  const uploadCustomMusicAvatar = async (musicId, file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const res = await api.post(`/upload/music-avatar/${musicId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data.thumbnail;
+  };
+
+  // Upload custom avatar tạm (cho bài chưa tạo — YT dialog)
+  const uploadTempMusicAvatar = async (file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const res = await api.post("/upload/music-avatar-temp", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data.thumbnail;
+  };
+
   // Extract + add music
   const handleYtExtract = async () => {
     setYtExtracting(true);
@@ -369,6 +424,12 @@ const MusicPlayer = () => {
     }, 500);
 
     try {
+      // Nếu chọn custom avatar, upload ảnh tạm trước
+      let customThumbnail = null;
+      if (ytAvatarType === "custom" && ytCustomAvatar) {
+        customThumbnail = await uploadTempMusicAvatar(ytCustomAvatar);
+      }
+
       const body = {
         youtubeUrl: ytUrl,
         category: ytCategory,
@@ -376,6 +437,12 @@ const MusicPlayer = () => {
         icon: ytAvatarType === "emoji" ? ytIcon : "🎵",
         useThumbnail: ytAvatarType === "thumbnail",
       };
+
+      // Nếu custom avatar, gửi URL ảnh đã upload
+      if (customThumbnail) {
+        body.useThumbnail = false;
+        body.customThumbnail = customThumbnail;
+      }
 
       if (ytNeedTrim) {
         body.startTime = ytTrimRange[0];
@@ -443,6 +510,10 @@ const MusicPlayer = () => {
     setEditIcon(music.icon || "🎵");
     setEditCategory(music.category || "other");
     setEditAvatarType(music.thumbnail ? "thumbnail" : "emoji");
+    setEditCustomAvatar(null);
+    if (editCustomPreview) URL.revokeObjectURL(editCustomPreview);
+    setEditCustomPreview("");
+    if (editFileInputRef.current) editFileInputRef.current.value = "";
     setEditDialogOpen(true);
   };
 
@@ -450,11 +521,18 @@ const MusicPlayer = () => {
     if (!editMusic || !editName.trim()) return;
     setEditLoading(true);
     try {
+      // Nếu chọn custom avatar, upload ảnh trước
+      let finalThumbnail = editAvatarType === "thumbnail" ? editMusic.thumbnail : null;
+
+      if (editAvatarType === "custom" && editCustomAvatar) {
+        finalThumbnail = await uploadCustomMusicAvatar(editMusic._id, editCustomAvatar);
+      }
+
       const body = {
         name: editName.trim(),
         icon: editAvatarType === "emoji" ? editIcon : "🎵",
         category: editCategory,
-        thumbnail: editAvatarType === "thumbnail" ? editMusic.thumbnail : null,
+        thumbnail: finalThumbnail,
       };
       const res = await api.put(`/music/${editMusic._id}`, body);
       const updated = res.data.data;
@@ -462,6 +540,7 @@ const MusicPlayer = () => {
       if (currentMusic?._id === editMusic._id) setCurrentMusic(updated);
       toast.success("Đã cập nhật bài hát");
       setEditDialogOpen(false);
+      setEditMusic(null);
     } catch (err) {
       toast.error(err.response?.data?.message || "Không thể cập nhật");
     } finally {
@@ -945,14 +1024,16 @@ const MusicPlayer = () => {
                     </Select>
                   </div>
 
-                  {/* Avatar nhạc */}
+                  {/* Avatar nhạc — 3 loại: YouTube, Emoji, Tự chọn */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground">Ảnh đại diện</label>
-                    <Select value={ytAvatarType} onValueChange={setYtAvatarType} disabled={ytExtracting}>
+                    <Select value={ytAvatarType} onValueChange={(val) => { setYtAvatarType(val); if (val === "custom" && !ytCustomAvatar) ytFileInputRef.current?.click(); }} disabled={ytExtracting}>
                       <SelectTrigger className="cursor-pointer">
                         <SelectValue>
                           {ytAvatarType === "thumbnail" ? (
-                            <span className="flex items-center gap-1.5"><Image className="size-3.5" />Ảnh YouTube</span>
+                            <span className="flex items-center gap-1.5"><Image className="size-3.5" />YouTube</span>
+                          ) : ytAvatarType === "custom" ? (
+                            <span className="flex items-center gap-1.5"><ImagePlus className="size-3.5" />Tự chọn</span>
                           ) : (
                             <span className="flex items-center gap-1.5">{ytIcon} Emoji</span>
                           )}
@@ -965,10 +1046,53 @@ const MusicPlayer = () => {
                         <SelectItem value="emoji" className="cursor-pointer">
                           <span className="flex items-center gap-1.5"><Sparkles className="size-3.5" />Chọn Emoji</span>
                         </SelectItem>
+                        <SelectItem value="custom" className="cursor-pointer">
+                          <span className="flex items-center gap-1.5"><ImagePlus className="size-3.5" />Tải ảnh lên</span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
+                    <input
+                      ref={ytFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAvatarFileChange(e.target.files?.[0], "yt")}
+                    />
                   </div>
                 </div>
+
+                {/* Custom avatar preview */}
+                {ytAvatarType === "custom" && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <label className="text-xs font-medium text-muted-foreground">Ảnh tự chọn</label>
+                    <div className="flex items-center gap-3">
+                      {ytCustomPreview ? (
+                        <div className="relative group/avatar">
+                          <img src={ytCustomPreview} alt="Preview" className="size-16 rounded-xl object-cover border-2 border-primary/30" />
+                          <button
+                            type="button"
+                            onClick={() => { setYtCustomAvatar(null); URL.revokeObjectURL(ytCustomPreview); setYtCustomPreview(""); if (ytFileInputRef.current) ytFileInputRef.current.value = ""; }}
+                            className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => ytFileInputRef.current?.click()}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed transition-all cursor-pointer hover:border-primary/50 hover:bg-primary/5",
+                          ytCustomPreview ? "border-muted" : "border-primary/30 bg-primary/5"
+                        )}
+                        disabled={ytExtracting}
+                      >
+                        <Upload className="size-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{ytCustomPreview ? "Đổi ảnh" : "Chọn ảnh"}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Emoji picker khi chọn "emoji" */}
                 {ytAvatarType === "emoji" && (
@@ -1137,7 +1261,9 @@ const MusicPlayer = () => {
             {/* Preview */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border">
               <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/30 flex items-center justify-center">
-                {editAvatarType === "thumbnail" && editMusic?.thumbnail ? (
+                {editAvatarType === "custom" && editCustomPreview ? (
+                  <img src={editCustomPreview} alt="" className="size-full object-cover" />
+                ) : editAvatarType === "thumbnail" && editMusic?.thumbnail ? (
                   <img src={editMusic.thumbnail} alt="" className="size-full object-cover" />
                 ) : (
                   <span className="text-2xl">{editIcon || "🎵"}</span>
@@ -1179,11 +1305,12 @@ const MusicPlayer = () => {
               </Select>
             </div>
 
-            {/* Avatar */}
+            {/* Avatar — 3 loại: YouTube/Current, Emoji, Tải ảnh */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Ảnh đại diện</label>
-              {editMusic?.thumbnail && (
-                <div className="flex gap-2">
+              <div className="flex gap-2">
+                {/* Nút: ảnh hiện tại (YouTube thumbnail) */}
+                {editMusic?.thumbnail && (
                   <button
                     type="button"
                     onClick={() => setEditAvatarType("thumbnail")}
@@ -1193,27 +1320,80 @@ const MusicPlayer = () => {
                     )}
                   >
                     <img src={editMusic.thumbnail} alt="" className="size-8 rounded object-cover" />
-                    <span className="text-xs font-medium">YouTube</span>
+                    <span className="text-xs font-medium">Hiện tại</span>
                     {editAvatarType === "thumbnail" && <Check className="size-3.5 text-primary ml-auto" />}
                   </button>
+                )}
+                {/* Nút: Emoji */}
+                <button
+                  type="button"
+                  onClick={() => setEditAvatarType("emoji")}
+                  className={cn(
+                    "flex-1 flex items-center gap-2 p-2.5 rounded-lg border-2 transition-all cursor-pointer",
+                    editAvatarType === "emoji" ? "border-primary bg-primary/10" : "border-muted hover:border-muted-foreground/30"
+                  )}
+                >
+                  <span className="text-2xl">{editIcon || "🎵"}</span>
+                  <span className="text-xs font-medium">Emoji</span>
+                  {editAvatarType === "emoji" && <Check className="size-3.5 text-primary ml-auto" />}
+                </button>
+                {/* Nút: Tải ảnh lên */}
+                <button
+                  type="button"
+                  onClick={() => { setEditAvatarType("custom"); if (!editCustomAvatar) editFileInputRef.current?.click(); }}
+                  className={cn(
+                    "flex-1 flex items-center gap-2 p-2.5 rounded-lg border-2 transition-all cursor-pointer",
+                    editAvatarType === "custom" ? "border-primary bg-primary/10" : "border-muted hover:border-muted-foreground/30"
+                  )}
+                >
+                  {editCustomPreview ? (
+                    <img src={editCustomPreview} alt="" className="size-8 rounded object-cover" />
+                  ) : (
+                    <ImagePlus className="size-5 text-muted-foreground" />
+                  )}
+                  <span className="text-xs font-medium">Tải lên</span>
+                  {editAvatarType === "custom" && <Check className="size-3.5 text-primary ml-auto" />}
+                </button>
+              </div>
+
+              {/* File input ẩn */}
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleAvatarFileChange(e.target.files?.[0], "edit")}
+              />
+
+              {/* Custom upload preview + đổi ảnh */}
+              {editAvatarType === "custom" && (
+                <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                  {editCustomPreview && (
+                    <div className="relative group/avatar">
+                      <img src={editCustomPreview} alt="Preview" className="size-16 rounded-xl object-cover border-2 border-primary/30" />
+                      <button
+                        type="button"
+                        onClick={() => { setEditCustomAvatar(null); URL.revokeObjectURL(editCustomPreview); setEditCustomPreview(""); if (editFileInputRef.current) editFileInputRef.current.value = ""; }}
+                        className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setEditAvatarType("emoji")}
-                    className={cn(
-                      "flex-1 flex items-center gap-2 p-2.5 rounded-lg border-2 transition-all cursor-pointer",
-                      editAvatarType === "emoji" ? "border-primary bg-primary/10" : "border-muted hover:border-muted-foreground/30"
-                    )}
+                    onClick={() => editFileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-muted hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer"
                   >
-                    <span className="text-2xl">{editIcon || "🎵"}</span>
-                    <span className="text-xs font-medium">Emoji</span>
-                    {editAvatarType === "emoji" && <Check className="size-3.5 text-primary ml-auto" />}
+                    <Upload className="size-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{editCustomPreview ? "Đổi ảnh" : "Chọn ảnh"}</span>
                   </button>
                 </div>
               )}
 
               {/* Emoji picker */}
-              {(editAvatarType === "emoji" || !editMusic?.thumbnail) && (
-                <div className="grid grid-cols-8 gap-1.5 p-2 rounded-lg bg-muted/20 border max-h-[120px] overflow-y-auto">
+              {editAvatarType === "emoji" && (
+                <div className="grid grid-cols-8 gap-1.5 p-2 rounded-lg bg-muted/20 border max-h-[120px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
                   {musicEmojis.map((emoji) => (
                     <button
                       key={emoji}
