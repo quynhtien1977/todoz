@@ -3,20 +3,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Music, Volume2, Play, Pause, Headphones, Radio, Search, RotateCcw, SkipBack, SkipForward, Gauge, Heart, Flame, Coffee, Music2, Globe, Loader2, X, Plus, Disc3, Clock, Trash2, Link, Crown, User, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 // Categories cho nhạc
 const musicCategories = [
   { id: "all", name: "Tất cả", icon: Music2 },
+  { id: "mine", name: "Của tôi", icon: User },
   { id: "favorite", name: "Yêu thích", icon: Heart },
   { id: "energetic", name: "Sôi động", icon: Flame },
   { id: "chill", name: "Chill", icon: Coffee },
   { id: "international", name: "Quốc tế", icon: Globe },
 ];
 
+const categoryOptions = [
+  { value: "chill", label: "Chill" },
+  { value: "energetic", label: "Sôi động" },
+  { value: "international", label: "Quốc tế" },
+  { value: "other", label: "Khác" },
+];
+
 const MusicPlayer = () => {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [currentMusic, setCurrentMusic] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -36,6 +53,26 @@ const MusicPlayer = () => {
   const [sfxList, setSfxList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userMusicCount, setUserMusicCount] = useState(0);
+  const [maxSongs, setMaxSongs] = useState(0);
+
+  // YouTube Dialog state
+  const [ytDialogOpen, setYtDialogOpen] = useState(false);
+  const [ytUrl, setYtUrl] = useState("");
+  const [ytPreview, setYtPreview] = useState(null);
+  const [ytCategory, setYtCategory] = useState("other");
+  const [ytName, setYtName] = useState("");
+  const [ytLoading, setYtLoading] = useState(false);
+  const [ytExtracting, setYtExtracting] = useState(false);
+  const [ytProgress, setYtProgress] = useState(0);
+  const [ytError, setYtError] = useState("");
+
+  // Trim state (khi bài > 5 phút)
+  const [ytNeedTrim, setYtNeedTrim] = useState(false);
+  const [ytTrimRange, setYtTrimRange] = useState([0, 300]);
+
+  // Delete confirm
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const musicRef = useRef(null);
   const sfxRefs = useRef({});
@@ -47,16 +84,16 @@ const MusicPlayer = () => {
     try {
       const response = await api.get("/music");
       
-      const allMusic = response.data.data; // API trả về { success: true, data: [...] }
+      const allMusic = response.data.data;
       
-      // Separate music and SFX
       const music = allMusic.filter(item => item.type === "music");
       const sfx = allMusic.filter(item => item.type === "sfx");
       
       setMusicList(music);
       setSfxList(sfx);
+      setUserMusicCount(response.data.userMusicCount || 0);
+      setMaxSongs(response.data.maxSongs || 0);
       
-      // Initialize SFX volumes
       const initialVolumes = {};
       sfx.forEach(item => { initialVolumes[item._id] = 50; });
       setSfxVolumes(prev => ({ ...initialVolumes, ...prev }));
@@ -75,11 +112,14 @@ const MusicPlayer = () => {
   // Toggle favorite via API
   const toggleFavorite = async (musicId, e) => {
     e.stopPropagation();
+    if (!user) {
+      toast.error("Đăng nhập để sử dụng tính năng yêu thích");
+      return;
+    }
     try {
       const response = await api.patch(`/music/${musicId}/favorite`);
-      const updatedMusic = response.data.data; // API trả về { success: true, data: music }
+      const updatedMusic = response.data.data;
       
-      // Update local state
       setMusicList(prev => prev.map(m => m._id === musicId ? updatedMusic : m));
       setSfxList(prev => prev.map(s => s._id === musicId ? updatedMusic : s));
       
@@ -102,12 +142,10 @@ const MusicPlayer = () => {
 
   // Get music source URL
   const getMusicSource = (music) => {
-    if (music.sourceType === "external" && music.externalUrl) {
+    if ((music.sourceType === "url" || music.sourceType === "external") && music.externalUrl) {
       return music.externalUrl;
     }
-    // Encode URL để xử lý các ký tự đặc biệt trong tên file
     const path = music.localPath || `/sounds/music/${music.name}.mp3`;
-    // Chỉ encode phần tên file, giữ nguyên đường dẫn
     const parts = path.split('/');
     const fileName = parts.pop();
     const encodedFileName = encodeURIComponent(fileName);
@@ -117,6 +155,7 @@ const MusicPlayer = () => {
   // Tính số lượng nhạc theo category
   const getCategoryCount = (categoryId) => {
     if (categoryId === "all") return musicList.length;
+    if (categoryId === "mine") return musicList.filter(m => m.isOwner).length;
     if (categoryId === "favorite") return musicList.filter(m => m.isFavorite).length;
     return musicList.filter(m => m.category === categoryId).length;
   };
@@ -126,6 +165,7 @@ const MusicPlayer = () => {
     const matchSearch = music.name.toLowerCase().includes(searchMusic.toLowerCase());
     const matchCategory = 
       selectedCategory === "all" || 
+      (selectedCategory === "mine" && music.isOwner) ||
       (selectedCategory === "favorite" && music.isFavorite) || 
       music.category === selectedCategory;
     return matchSearch && matchCategory;
@@ -174,13 +214,10 @@ const MusicPlayer = () => {
     } 
   };
 
-  // Xử lý toggle nhạc - click bài đang phát sẽ hủy bài hoàn toàn
   const handleMusicToggle = (music) => {
     if (currentMusic?._id === music._id) {
-      // Nếu click vào bài đang phát → hủy bài hoàn toàn
       handleStop();
     } else {
-      // Nếu click vào bài khác → phát bài mới
       setCurrentMusic(music); 
       setIsPlaying(true); 
       setCurrentTime(0);
@@ -239,6 +276,141 @@ const MusicPlayer = () => {
     setSfxVolumes((prev) => ({ ...prev, [id]: value[0] })); 
     if (sfxRefs.current[id]) sfxRefs.current[id].volume = (value[0] / 100) * (masterVolume / 100); 
   };
+
+  // ========== YouTube Dialog ==========
+
+  const resetYtDialog = () => {
+    setYtUrl("");
+    setYtPreview(null);
+    setYtCategory("other");
+    setYtName("");
+    setYtLoading(false);
+    setYtExtracting(false);
+    setYtProgress(0);
+    setYtError("");
+    setYtNeedTrim(false);
+    setYtTrimRange([0, 300]);
+  };
+
+  const handleOpenYtDialog = () => {
+    if (!user) {
+      toast.error("Đăng nhập để thêm nhạc từ YouTube");
+      return;
+    }
+    if (userMusicCount >= maxSongs) {
+      toast.error(
+        user.role === "free"
+          ? "Tài khoản Free chỉ được thêm 1 bài. Nâng cấp PRO!"
+          : `Đã đạt giới hạn ${maxSongs} bài.`
+      );
+      return;
+    }
+    resetYtDialog();
+    setYtDialogOpen(true);
+  };
+
+  // Preview YouTube video
+  const handleYtPreview = async () => {
+    if (!ytUrl.trim()) return;
+    setYtLoading(true);
+    setYtError("");
+    setYtPreview(null);
+    setYtNeedTrim(false);
+
+    try {
+      const res = await api.post("/music/youtube/preview", { youtubeUrl: ytUrl });
+      const data = res.data.data;
+      setYtPreview(data);
+      setYtName(data.title);
+      
+      if (data.needTrim) {
+        setYtNeedTrim(true);
+        setYtTrimRange([0, Math.min(300, data.duration)]);
+      }
+    } catch (err) {
+      setYtError(err.response?.data?.message || "Không thể tải thông tin video");
+    } finally {
+      setYtLoading(false);
+    }
+  };
+
+  // Extract + add music
+  const handleYtExtract = async () => {
+    setYtExtracting(true);
+    setYtProgress(0);
+    setYtError("");
+
+    const progressInterval = setInterval(() => {
+      setYtProgress(prev => {
+        if (prev >= 90) { clearInterval(progressInterval); return 90; }
+        return prev + Math.random() * 8;
+      });
+    }, 500);
+
+    try {
+      const body = {
+        youtubeUrl: ytUrl,
+        category: ytCategory,
+        name: ytName || undefined,
+      };
+
+      if (ytNeedTrim) {
+        body.startTime = ytTrimRange[0];
+        body.endTime = ytTrimRange[1];
+      }
+
+      const res = await api.post("/music/youtube", body);
+      clearInterval(progressInterval);
+      setYtProgress(100);
+
+      const newMusic = res.data.data;
+      setMusicList(prev => [newMusic, ...prev]);
+      setUserMusicCount(res.data.userMusicCount);
+      setMaxSongs(res.data.maxSongs);
+
+      toast.success(`Đã thêm "${newMusic.name}"`);
+
+      setTimeout(() => {
+        setYtDialogOpen(false);
+        resetYtDialog();
+      }, 800);
+    } catch (err) {
+      clearInterval(progressInterval);
+      setYtProgress(0);
+
+      const data = err.response?.data;
+      if (data?.needTrim) {
+        setYtNeedTrim(true);
+        setYtTrimRange([0, Math.min(300, data.duration)]);
+        setYtPreview(prev => ({
+          ...prev,
+          title: data.title,
+          thumbnail: data.thumbnail,
+          duration: data.duration,
+          needTrim: true,
+        }));
+        setYtError("Bài hát dài hơn 5 phút. Chọn đoạn bạn muốn.");
+      } else {
+        setYtError(data?.message || "Lỗi khi trích xuất nhạc");
+      }
+    } finally {
+      setYtExtracting(false);
+    }
+  };
+
+  // Delete personal music
+  const handleDeleteMusic = async (musicId) => {
+    try {
+      await api.delete(`/music/${musicId}`);
+      setMusicList(prev => prev.filter(m => m._id !== musicId));
+      setUserMusicCount(prev => prev - 1);
+      if (currentMusic?._id === musicId) handleStop();
+      toast.success("Đã xóa bài hát");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể xóa bài hát");
+    }
+    setDeleteConfirm(null);
+  };
   
   const isAnythingPlaying = isPlaying || Object.values(activeSfx).some(Boolean);
   const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -262,10 +434,43 @@ const MusicPlayer = () => {
             </TabsList>
 
             <TabsContent value="music" className="p-4 pt-3 overflow-y-auto min-h-0">
-              <div className="relative mb-3"><Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input placeholder="Tìm kiếm..." value={searchMusic} onChange={(e) => setSearchMusic(e.target.value)} className="pl-9 h-9" /></div>
+              {/* Search + nút thêm nhạc */}
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input placeholder="Tìm kiếm..." value={searchMusic} onChange={(e) => setSearchMusic(e.target.value)} className="pl-9 h-9" />
+                </div>
+                {user && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="size-9 shrink-0 cursor-pointer border-dashed border-primary/40 hover:bg-primary/10 hover:border-primary"
+                        onClick={handleOpenYtDialog}
+                        disabled={userMusicCount >= maxSongs}
+                      >
+                        {/* Icon V1: 2 đĩa nhạc */}
+                        <div className="relative">
+                          <Disc3 className="size-3.5 text-primary" />
+                          <Disc3 className="size-3 text-primary/60 absolute -bottom-0.5 -right-1" />
+                          <Plus className="size-2 text-primary absolute -top-0.5 -right-1.5" />
+                        </div>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {userMusicCount >= maxSongs
+                        ? `Đã đạt giới hạn (${userMusicCount}/${maxSongs})`
+                        : `Thêm từ YouTube (${userMusicCount}/${maxSongs})`}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               
+              {/* Categories */}
               <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
                 {musicCategories.map((cat) => { 
+                  if (cat.id === "mine" && !user) return null;
                   const Icon = cat.icon; 
                   const count = getCategoryCount(cat.id);
                   return (
@@ -278,6 +483,21 @@ const MusicPlayer = () => {
                 })}
               </div>
 
+              {/* Tier limit indicator khi ở tab "Của tôi" */}
+              {selectedCategory === "mine" && user && (
+                <div className="flex items-center justify-between mb-3 px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Disc3 className="size-3.5 text-primary" />
+                    <span>{userMusicCount}/{maxSongs} bài</span>
+                  </div>
+                  {user.role === "free" && (
+                    <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/30 text-amber-600">
+                      <Crown className="size-3" /> Nâng cấp PRO
+                    </Badge>
+                  )}
+                </div>
+              )}
+
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="size-6 animate-spin text-primary" />
@@ -288,31 +508,63 @@ const MusicPlayer = () => {
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {filteredMusic.map((music) => (
                     <div key={music._id} onClick={() => handleMusicToggle(music)} className={cn("relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer hover:scale-105 group", currentMusic?._id === music._id ? "bg-primary/20 border-primary text-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>
-                      {music.iconPath ? (
+                      {/* Nút xóa cho nhạc cá nhân */}
+                      {music.isOwner && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(music); }}
+                          className="absolute -top-1 -right-1 size-5 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      )}
+                      {/* Thumbnail YouTube hoặc icon */}
+                      {music.thumbnail ? (
+                        <img src={music.thumbnail} alt={music.name} className="size-8 rounded object-cover" />
+                      ) : music.iconPath ? (
                         <img src={music.iconPath} alt={music.name} className="size-8 object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
                       ) : null}
-                      <span className={cn("text-3xl", music.iconPath && "hidden")}>{music.icon}</span>
+                      <span className={cn("text-3xl", (music.iconPath || music.thumbnail) && "hidden")}>{music.icon}</span>
                       <span className="text-[10px] text-center truncate w-full mt-1">{music.name}</span>
+                      {/* Badge "Của tôi" */}
+                      {music.isOwner && selectedCategory !== "mine" && (
+                        <div className="absolute top-0.5 left-0.5">
+                          <div className="size-1.5 rounded-full bg-primary" />
+                        </div>
+                      )}
                     </div>
                   ))}
-                  {filteredMusic.length === 0 && <div className="col-span-full text-center text-sm text-muted-foreground py-8">Không tìm thấy bài hát</div>}
+                  {filteredMusic.length === 0 && (
+                    <div className="col-span-full text-center text-sm text-muted-foreground py-8">
+                      {selectedCategory === "mine" ? (
+                        <div className="space-y-2">
+                          <Disc3 className="size-8 mx-auto text-muted-foreground/40" />
+                          <p>Chưa có nhạc cá nhân</p>
+                          <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer" onClick={handleOpenYtDialog}>
+                            <Plus className="size-3.5" />Thêm từ YouTube
+                          </Button>
+                        </div>
+                      ) : "Không tìm thấy bài hát"}
+                    </div>
+                  )}
                 </div>
               )}
 
+              {/* Now Playing */}
               {currentMusic && (
                 <div className="mt-3 p-3 bg-muted/30 rounded-xl space-y-3">
-                  {/* Thông tin bài hát */}
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">{currentMusic.icon}</span>
+                    {currentMusic.thumbnail ? (
+                      <img src={currentMusic.thumbnail} alt="" className="size-8 rounded object-cover" />
+                    ) : (
+                      <span className="text-2xl">{currentMusic.icon}</span>
+                    )}
                     <span className="text-sm font-medium truncate flex-1">{currentMusic.name}</span>
                     {isPlaying && <div className="size-2 bg-primary rounded-full animate-pulse" />}
                   </div>
-                  {/* Thanh tiến trình */}
                   <div className="space-y-1">
                     <Slider value={[currentTime]} onValueChange={handleSeek} max={duration || 100} step={0.1} className="cursor-pointer" />
                     <div className="flex justify-between text-[10px] text-muted-foreground"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
                   </div>
-                  {/* Các nút điều khiển - căn giữa đều */}
                   <div className="flex items-center justify-center gap-3">
                     <Button variant="ghost" size="icon" className="size-9 cursor-pointer" onClick={(e) => toggleFavorite(currentMusic._id, e)} title="Yêu thích"><Heart className={cn("size-4", currentMusic.isFavorite ? "fill-red-500 text-red-500" : "")} /></Button>
                     <Button variant="ghost" size="icon" className="size-9 cursor-pointer" onClick={() => handleSkip(-10)} title="Lùi 10s"><SkipBack className="size-4" /></Button>
@@ -320,7 +572,6 @@ const MusicPlayer = () => {
                     <Button variant="ghost" size="icon" className="size-9 cursor-pointer" onClick={() => handleSkip(10)} title="Tới 10s"><SkipForward className="size-4" /></Button>
                     <Button variant="ghost" size="icon" className="size-9 cursor-pointer text-foreground hover:bg-muted" onClick={handleStop} title="Hủy bài"><RotateCcw className="size-4" /></Button>
                   </div>
-                  {/* Âm lượng và tốc độ */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -388,6 +639,211 @@ const MusicPlayer = () => {
           </div>
         </div>
       )}
+
+      {/* ========== YouTube Dialog (V2 design + V1 icons) ========== */}
+      <Dialog open={ytDialogOpen} onOpenChange={(open) => { if (!open && !ytExtracting) { setYtDialogOpen(false); resetYtDialog(); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {/* Icon V1: 2 đĩa nhạc */}
+              <div className="relative size-6">
+                <Disc3 className="size-5 text-primary" />
+                <Disc3 className="size-4 text-primary/60 absolute -bottom-0.5 -right-1.5" />
+              </div>
+              Thêm nhạc từ YouTube
+            </DialogTitle>
+            <DialogDescription>
+              Dán link YouTube để trích xuất nhạc vào bộ sưu tập
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* URL Input */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Link className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input 
+                  placeholder="https://youtube.com/watch?v=..." 
+                  value={ytUrl} 
+                  onChange={(e) => setYtUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleYtPreview()}
+                  className="pl-9"
+                  disabled={ytExtracting}
+                />
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleYtPreview} 
+                disabled={ytLoading || ytExtracting || !ytUrl.trim()}
+                className="cursor-pointer shrink-0"
+              >
+                {ytLoading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+              </Button>
+            </div>
+
+            {/* Error */}
+            {ytError && (
+              <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                {ytError}
+              </div>
+            )}
+
+            {/* Preview */}
+            {ytPreview && (
+              <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* Thumbnail + info */}
+                <div className="flex gap-3 p-3 rounded-xl bg-muted/30 border">
+                  <img 
+                    src={ytPreview.thumbnail} 
+                    alt={ytPreview.title} 
+                    className="w-24 h-16 rounded-lg object-cover shrink-0"
+                  />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className="text-sm font-medium line-clamp-2 leading-tight">{ytPreview.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{ytPreview.channel}</span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="size-3" />
+                        {formatTime(ytPreview.duration)}
+                      </span>
+                    </div>
+                    {ytPreview.needTrim && (
+                      <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/30 text-amber-600">
+                        <Scissors className="size-3" /> Cần cắt (tối đa 5 phút)
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tên bài hát */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Tên bài hát</label>
+                  <Input 
+                    value={ytName} 
+                    onChange={(e) => setYtName(e.target.value)} 
+                    placeholder="Tên bài hát..." 
+                    disabled={ytExtracting}
+                  />
+                </div>
+
+                {/* Thể loại */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Thể loại</label>
+                  <Select value={ytCategory} onValueChange={setYtCategory} disabled={ytExtracting}>
+                    <SelectTrigger className="cursor-pointer">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoryOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value} className="cursor-pointer">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Audio Trimmer (khi bài > 5 phút) */}
+                {ytNeedTrim && (
+                  <div className="space-y-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                    <div className="flex items-center gap-2 text-xs font-medium text-amber-600">
+                      {/* Icon V1: đồng hồ trích xuất */}
+                      <Clock className="size-3.5" />
+                      Chọn đoạn cắt (tối đa 5 phút)
+                    </div>
+                    <Slider 
+                      value={ytTrimRange}
+                      onValueChange={(val) => {
+                        const [start, end] = val;
+                        if (end - start > 300) return;
+                        setYtTrimRange(val);
+                      }}
+                      max={ytPreview.duration}
+                      step={1}
+                      minStepsBetweenThumbs={10}
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>{formatTime(ytTrimRange[0])}</span>
+                      <span className="text-primary font-medium">{formatTime(ytTrimRange[1] - ytTrimRange[0])}</span>
+                      <span>{formatTime(ytTrimRange[1])}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Progress bar khi đang trích xuất */}
+                {ytExtracting && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {/* Icon V1: đồng hồ + loading */}
+                      <Clock className="size-3.5 text-primary animate-spin" />
+                      <span>Đang trích xuất...</span>
+                      <span className="ml-auto font-medium">{Math.round(ytProgress)}%</span>
+                    </div>
+                    <Progress value={ytProgress} className="h-2" />
+                  </div>
+                )}
+
+                {/* Tier info */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Disc3 className="size-3.5" />
+                    {userMusicCount}/{maxSongs} bài đã dùng
+                  </span>
+                  {user?.role === "free" && (
+                    <span className="flex items-center gap-1 text-amber-600">
+                      <Crown className="size-3" />
+                      PRO = 15 bài
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={ytExtracting} className="cursor-pointer">Hủy</Button>
+            </DialogClose>
+            <Button
+              variant="gradient"
+              onClick={handleYtExtract}
+              disabled={!ytPreview || ytExtracting || ytLoading}
+              className="cursor-pointer gap-2"
+            >
+              {ytExtracting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Đang trích xuất...
+                </>
+              ) : (
+                <>
+                  {/* Icon V1: đĩa nhạc */}
+                  <Disc3 className="size-4" />
+                  Thêm nhạc
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa bài hát?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa <span className="font-semibold text-foreground">"{deleteConfirm?.name}"</span>? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">Hủy</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer" onClick={() => handleDeleteMusic(deleteConfirm?._id)}>
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

@@ -1,6 +1,7 @@
 import { Toaster } from 'sonner';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { AuthProvider } from './context/AuthContext';
+import { TooltipProvider } from './components/ui/tooltip';
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -14,6 +15,7 @@ function App() {
   return <>
     <Toaster position="top-right" richColors/>
     <AuthProvider>
+      <TooltipProvider>
       <BrowserRouter>
         <Routes>
           <Route path='/' element={<HomePage />} />
@@ -27,6 +29,7 @@ function App() {
           <Route path='*' element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   </>;
 }

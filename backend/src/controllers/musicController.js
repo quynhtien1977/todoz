@@ -1,16 +1,51 @@
 import Music from "../models/Music.js";
+import { extractAndUpload, getVideoInfo, deleteFromCloudinary } from "../utils/youtubeService.js";
 
-// Lấy tất cả nhạc (music hoặc sfx)
+// Tier limits
+const TIER_LIMITS = {
+    free: { maxSongs: 1 },
+    pro: { maxSongs: 15 },
+    admin: { maxSongs: 999 },
+};
+const MAX_DURATION = 5 * 60; // 300 seconds = 5 phút
+
+// Lấy tất cả nhạc (system + nhạc cá nhân của user)
 export const getAllMusic = async (req, res) => {
     try {
         const { type, category } = req.query;
-        const filter = {};
+        const userId = req.user?._id;
+
+        // System music (userId: null) + nhạc cá nhân (nếu đã login)
+        const filter = userId
+            ? { $or: [{ userId: null }, { userId }] }
+            : { userId: null };
         
         if (type) filter.type = type;
         if (category) filter.category = category;
         
-        const music = await Music.find(filter).sort({ createdAt: -1 });
-        res.status(200).json({ success: true, data: music });
+        const music = await Music.find(filter).sort({ createdAt: -1 }).lean();
+
+        // Đánh dấu isOwner + isFavorite per-user
+        const data = music.map(m => ({
+            ...m,
+            isOwner: userId ? m.userId?.toString() === userId.toString() : false,
+            isFavorite: userId ? (m.favoritedBy || []).some(id => id.toString() === userId.toString()) : false,
+        }));
+
+        // Đếm số nhạc cá nhân của user
+        const userMusicCount = userId
+            ? data.filter(m => m.isOwner).length
+            : 0;
+        const maxSongs = userId
+            ? (TIER_LIMITS[req.user.role] || TIER_LIMITS.free).maxSongs
+            : 0;
+
+        res.status(200).json({ 
+            success: true, 
+            data,
+            userMusicCount,
+            maxSongs,
+        });
     } catch (error) {
         console.error("Error fetching music:", error);
         res.status(500).json({ success: false, message: "Server Error" });
@@ -31,7 +66,7 @@ export const getMusicById = async (req, res) => {
     }
 };
 
-// Thêm nhạc mới (local hoặc URL)
+// Thêm nhạc mới (local hoặc URL) — dùng cho admin/seed
 export const addMusic = async (req, res) => {
     try {
         const { name, icon, category, type, sourceType, localPath, externalUrl } = req.body;
@@ -40,7 +75,6 @@ export const addMusic = async (req, res) => {
             return res.status(400).json({ success: false, message: "Name is required" });
         }
         
-        // Extract YouTube ID nếu là URL YouTube
         let youtubeId = null;
         if (sourceType === 'url' && externalUrl) {
             youtubeId = extractYoutubeId(externalUrl);
@@ -65,10 +99,124 @@ export const addMusic = async (req, res) => {
     }
 };
 
+// ========== YouTube Integration ==========
+
+// Preview: lấy thông tin video YouTube trước khi extract
+export const previewYouTube = async (req, res) => {
+    try {
+        const { youtubeUrl } = req.body;
+        if (!youtubeUrl) {
+            return res.status(400).json({ success: false, message: "URL YouTube là bắt buộc" });
+        }
+
+        const info = await getVideoInfo(youtubeUrl);
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                ...info,
+                needTrim: info.duration > MAX_DURATION,
+                maxDuration: MAX_DURATION,
+            }
+        });
+    } catch (error) {
+        console.error("Error previewing YouTube:", error);
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+// Thêm nhạc từ YouTube: extract audio → upload Cloudinary → tạo Music record
+export const addFromYouTube = async (req, res) => {
+    try {
+        const { youtubeUrl, category, name, startTime, endTime } = req.body;
+        const userId = req.user._id;
+
+        if (!youtubeUrl) {
+            return res.status(400).json({ success: false, message: "URL YouTube là bắt buộc" });
+        }
+
+        // Check tier limit
+        const userMusicCount = await Music.countDocuments({ userId });
+        const maxSongs = (TIER_LIMITS[req.user.role] || TIER_LIMITS.free).maxSongs;
+        
+        if (userMusicCount >= maxSongs) {
+            return res.status(403).json({
+                success: false,
+                message: req.user.role === "free"
+                    ? "Tài khoản Free chỉ được thêm 1 bài. Nâng cấp PRO để thêm tối đa 15 bài!"
+                    : `Đã đạt giới hạn ${maxSongs} bài.`,
+                userMusicCount,
+                maxSongs,
+            });
+        }
+
+        // Check trùng YouTube video cho user này
+        const youtubeId = extractYoutubeId(youtubeUrl);
+        if (youtubeId) {
+            const existing = await Music.findOne({ youtubeId, userId });
+            if (existing) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Bạn đã thêm bài này rồi",
+                    data: existing,
+                });
+            }
+        }
+
+        // Extract audio + upload Cloudinary
+        const result = await extractAndUpload(youtubeUrl, userId.toString(), { startTime, endTime });
+
+        // Tạo Music record
+        const music = new Music({
+            name: name || result.title,
+            icon: "🎵",
+            category: category || "other",
+            type: "music",
+            sourceType: "url",
+            externalUrl: result.url,
+            youtubeId: result.videoId,
+            cloudinaryId: result.publicId,
+            thumbnail: result.thumbnail,
+            duration: result.duration,
+            userId,
+            addedBy: userId.toString(),
+        });
+        await music.save();
+
+        res.status(201).json({
+            success: true,
+            data: {
+                ...music.toObject(),
+                isOwner: true,
+                isFavorite: false,
+            },
+            userMusicCount: userMusicCount + 1,
+            maxSongs,
+        });
+    } catch (error) {
+        console.error("Error adding from YouTube:", error);
+
+        // Trả về needTrim nếu bài quá dài
+        if (error.needTrim) {
+            return res.status(400).json({
+                success: false,
+                message: error.message,
+                needTrim: true,
+                duration: error.duration,
+                title: error.title,
+                thumbnail: error.thumbnail,
+                videoId: error.videoId,
+            });
+        }
+
+        res.status(500).json({ success: false, message: error.message || "Server Error" });
+    }
+};
+
 // Cập nhật nhạc
 export const updateMusic = async (req, res) => {
     try {
-        const { name, icon, category, type, sourceType, localPath, externalUrl, isFavorite } = req.body;
+        const { name, icon, category, type, sourceType, localPath, externalUrl } = req.body;
         
         let youtubeId = null;
         if (sourceType === 'url' && externalUrl) {
@@ -77,7 +225,7 @@ export const updateMusic = async (req, res) => {
         
         const updatedMusic = await Music.findByIdAndUpdate(
             req.params.id,
-            { name, icon, category, type, sourceType, localPath, externalUrl, youtubeId, isFavorite },
+            { name, icon, category, type, sourceType, localPath, externalUrl, youtubeId },
             { new: true, runValidators: true }
         );
         
@@ -92,35 +240,68 @@ export const updateMusic = async (req, res) => {
     }
 };
 
-// Xóa nhạc
+// Xóa nhạc — chỉ xóa nhạc cá nhân (hoặc admin xóa bất kỳ)
 export const deleteMusic = async (req, res) => {
     try {
-        const deletedMusic = await Music.findByIdAndDelete(req.params.id);
-        
-        if (!deletedMusic) {
+        const music = await Music.findById(req.params.id);
+        if (!music) {
             return res.status(404).json({ success: false, message: "Music not found" });
         }
-        
-        res.status(200).json({ success: true, message: "Music deleted successfully" });
+
+        const userId = req.user._id;
+        const isOwner = music.userId?.toString() === userId.toString();
+        const isAdmin = req.user.role === "admin";
+
+        // Chỉ owner hoặc admin mới được xóa
+        if (!music.userId && !isAdmin) {
+            return res.status(403).json({ success: false, message: "Không thể xóa nhạc hệ thống" });
+        }
+        if (music.userId && !isOwner && !isAdmin) {
+            return res.status(403).json({ success: false, message: "Bạn không có quyền xóa bài này" });
+        }
+
+        // Xóa file trên Cloudinary nếu có
+        if (music.cloudinaryId) {
+            await deleteFromCloudinary(music.cloudinaryId);
+        }
+
+        await Music.findByIdAndDelete(req.params.id);
+        res.status(200).json({ success: true, message: "Đã xóa bài hát" });
     } catch (error) {
         console.error("Error deleting music:", error);
         res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
-// Toggle favorite
+// Toggle favorite (per-user: dùng favoritedBy array)
 export const toggleFavorite = async (req, res) => {
     try {
+        const userId = req.user._id;
         const music = await Music.findById(req.params.id);
         
         if (!music) {
             return res.status(404).json({ success: false, message: "Music not found" });
         }
         
-        music.isFavorite = !music.isFavorite;
+        const index = (music.favoritedBy || []).findIndex(
+            id => id.toString() === userId.toString()
+        );
+
+        if (index === -1) {
+            music.favoritedBy.push(userId);
+        } else {
+            music.favoritedBy.splice(index, 1);
+        }
         await music.save();
-        
-        res.status(200).json({ success: true, data: music });
+
+        res.status(200).json({ 
+            success: true, 
+            data: {
+                ...music.toObject(),
+                isFavorite: index === -1, // true nếu vừa thêm
+                isOwner: music.userId?.toString() === userId.toString(),
+            }
+        });
     } catch (error) {
         console.error("Error toggling favorite:", error);
         res.status(500).json({ success: false, message: "Server Error" });

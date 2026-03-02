@@ -26,7 +26,7 @@ const musicSchema = new mongoose.Schema({
         enum: ['music', 'sfx'],
         default: 'music'
     },
-    // Loại source: local file hoặc URL
+    // Loại source: local file hoặc URL (Cloudinary)
     sourceType: {
         type: String,
         enum: ['local', 'url'],
@@ -35,28 +35,48 @@ const musicSchema = new mongoose.Schema({
     // Đường dẫn file local (VD: /sounds/music/song.mp3)
     localPath: {
         type: String,
-        required: true,
         default: null
     },
-    // URL từ YouTube hoặc nguồn khác
+    // URL từ Cloudinary (sau khi extract từ YouTube)
     externalUrl: {
         type: String,
         default: null
     },
-    // Để lưu thông tin embed YouTube
+    // YouTube video ID gốc
     youtubeId: {
         type: String,
         default: null
     },
-    isFavorite: {
-        type: Boolean,
-        default: false
+    // Cloudinary public_id để xóa file khi cần
+    cloudinaryId: {
+        type: String,
+        default: null
     },
+    // Thumbnail từ YouTube
+    thumbnail: {
+        type: String,
+        default: null
+    },
+    // Duration (seconds)
+    duration: {
+        type: Number,
+        default: 0
+    },
+    // Per-user: null = system music (global), ObjectId = nhạc cá nhân
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+    },
+    // Per-user favorites: mảng userId đã yêu thích
+    favoritedBy: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    }],
     playCount: {
         type: Number,
         default: 0
     },
-    // Ai thêm bài hát (có thể mở rộng cho multi-user sau)
     addedBy: {
         type: String,
         default: 'system'
@@ -68,6 +88,7 @@ const musicSchema = new mongoose.Schema({
 // Index để tìm kiếm nhanh
 musicSchema.index({ name: 'text' });
 musicSchema.index({ category: 1, type: 1 });
+musicSchema.index({ userId: 1, type: 1 });
 
 const Music = mongoose.model("Music", musicSchema);
 export default Music;
