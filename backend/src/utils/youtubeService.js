@@ -40,7 +40,9 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
     // 2. Check duration limit (max 5 phút = 300s)
     const MAX_DURATION = 5 * 60;
     const { startTime, endTime } = options;
-    const hasTrimmingParams = startTime !== undefined && endTime !== undefined;
+    const parsedStart = Number(startTime);
+    const parsedEnd = Number(endTime);
+    const hasTrimmingParams = Number.isFinite(parsedStart) && Number.isFinite(parsedEnd);
 
     if (duration > MAX_DURATION && !hasTrimmingParams) {
         const error = new Error("Bài hát dài hơn 5 phút. Vui lòng chọn đoạn muốn cắt.");
@@ -53,10 +55,10 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
     }
 
     if (hasTrimmingParams) {
-        if (endTime - startTime > MAX_DURATION) {
+        if (parsedEnd - parsedStart > MAX_DURATION) {
             throw new Error(`Đoạn cắt không được dài hơn ${MAX_DURATION / 60} phút`);
         }
-        if (startTime < 0 || endTime > duration) {
+        if (parsedStart < 0 || parsedEnd > duration) {
             throw new Error("Thời gian cắt không hợp lệ");
         }
     }
@@ -76,8 +78,8 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
         ffmpegLocation: ffmpegPath,
     };
 
-    if (startTime !== undefined && endTime !== undefined) {
-        ytOpts.postprocessorArgs = `ffmpeg:-ss ${startTime} -to ${endTime}`;
+    if (hasTrimmingParams) {
+        ytOpts.postprocessorArgs = `ffmpeg:-ss ${parsedStart} -to ${parsedEnd}`;
     }
 
     console.log("[youtubeService] Downloading audio...");
@@ -105,8 +107,8 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
         try { fs.unlinkSync(mp3File); } catch { /* ignore */ }
     }
 
-    const actualDuration = (startTime !== undefined && endTime !== undefined)
-        ? (endTime - startTime)
+    const actualDuration = hasTrimmingParams
+        ? (parsedEnd - parsedStart)
         : Math.min(duration, MAX_DURATION);
 
     return {
