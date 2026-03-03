@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import api from "../lib/axios";
+import { guestStorage } from "../lib/guestStorage";
 
 const AuthContext = createContext(null);
 
@@ -70,10 +71,10 @@ export const AuthProvider = ({ children }) => {
   // Merge tasks từ localStorage lên server sau khi đăng nhập
   const mergeGuestTasksToServer = async () => {
     try {
-      const guestTasks = JSON.parse(localStorage.getItem("guestTasks") || "[]");
-      if (guestTasks.length > 0) {
-        await api.post("/auth/merge-tasks", { guestTasks });
-        localStorage.removeItem("guestTasks");
+      if (guestStorage.hasTasks()) {
+        const tasks = guestStorage.getTasks();
+        await api.post("/auth/merge-tasks", { guestTasks: tasks });
+        guestStorage.clearTasks();
       }
     } catch (error) {
       console.error("Merge guest tasks error:", error);

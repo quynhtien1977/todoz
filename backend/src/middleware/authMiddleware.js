@@ -61,7 +61,12 @@ export const optionalAuth = async (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.user = await User.findById(decoded.id);
         } catch (error) {
-            // Token invalid, continue as guest
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+                // Token invalid/expired, continue as guest
+            } else {
+                // Unexpected error (DB error, etc.) — log nhưng vẫn tiếp tục
+                console.error('[optionalAuth] Unexpected error:', error.message);
+            }
         }
     }
     

@@ -11,15 +11,15 @@ import {
     previewYouTube,
     addFromYouTube,
 } from "../controllers/musicController.js";
-import { optionalAuth, protect } from "../middleware/authMiddleware.js";
+import { optionalAuth, protect, requireRole } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // GET /api/music - Lấy tất cả nhạc (system + nhạc cá nhân nếu đã login)
 router.get("/", optionalAuth, getAllMusic);
 
-// POST /api/music/seed - Seed initial music data
-router.post("/seed", seedMusic);
+// POST /api/music/seed - Seed initial music data (admin only)
+router.post("/seed", protect, requireRole("admin"), seedMusic);
 
 // POST /api/music/youtube/preview - Preview YouTube video info
 router.post("/youtube/preview", protect, previewYouTube);

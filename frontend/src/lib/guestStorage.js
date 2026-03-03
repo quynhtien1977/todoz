@@ -20,7 +20,7 @@ export const guestStorage = {
     const tasks = guestStorage.getTasks();
     const newTask = {
       ...task,
-      _id: `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      _id: `guest_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
       status: task.status || "pending",
       priority: task.priority || "medium",
       createdAt: new Date().toISOString(),

@@ -144,9 +144,12 @@ const HomePage = () => {
     page * visibleTaskLimit
   );
 
-  if (visibleTasks.length === 0 && page > 1) {
-    handlePrev();
-  }
+  // Auto-go-back khi page hiện tại trống (ví dụ xóa hết task ở page cuối)
+  useEffect(() => {
+    if (visibleTasks.length === 0 && page > 1) {
+      setPage((prev) => prev - 1);
+    }
+  }, [visibleTasks.length, page]);
 
   const totalPages = Math.ceil(filteredTasks.length / visibleTaskLimit);
 
