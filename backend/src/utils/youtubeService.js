@@ -40,8 +40,9 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
     // 2. Check duration limit (max 5 phút = 300s)
     const MAX_DURATION = 5 * 60;
     const { startTime, endTime } = options;
+    const hasTrimmingParams = startTime !== undefined && endTime !== undefined;
 
-    if (duration > MAX_DURATION && (!startTime && startTime !== 0)) {
+    if (duration > MAX_DURATION && !hasTrimmingParams) {
         const error = new Error("Bài hát dài hơn 5 phút. Vui lòng chọn đoạn muốn cắt.");
         error.needTrim = true;
         error.duration = duration;
@@ -51,7 +52,7 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
         throw error;
     }
 
-    if (startTime !== undefined && endTime !== undefined) {
+    if (hasTrimmingParams) {
         if (endTime - startTime > MAX_DURATION) {
             throw new Error(`Đoạn cắt không được dài hơn ${MAX_DURATION / 60} phút`);
         }
