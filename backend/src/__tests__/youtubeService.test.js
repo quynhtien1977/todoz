@@ -263,6 +263,66 @@ describe("extractAndUpload", () => {
                 extractAndUpload(validUrl, userId, { startTime: 0, endTime: 300 })
             ).rejects.toThrow("không hợp lệ");
         });
+
+        it("should throw if endTime <= startTime (reversed range)", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Video", duration: 200,
+                thumbnail: "t.jpg", id: "vid", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { startTime: 100, endTime: 50 })
+            ).rejects.toThrow("Thời gian kết thúc phải lớn hơn thời gian bắt đầu");
+        });
+
+        it("should throw if startTime equals endTime", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Video", duration: 200,
+                thumbnail: "t.jpg", id: "vid", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { startTime: 60, endTime: 60 })
+            ).rejects.toThrow("Thời gian kết thúc phải lớn hơn thời gian bắt đầu");
+        });
+
+        it("should treat null params as no trimming (require trim for long video)", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Long Video", duration: 600,
+                thumbnail: "t.jpg", id: "long123", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { startTime: null, endTime: null })
+            ).rejects.toThrow("Vui lòng chọn đoạn muốn cắt");
+        });
+
+        it("should treat empty string params as no trimming (require trim for long video)", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Long Video", duration: 600,
+                thumbnail: "t.jpg", id: "long123", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { startTime: "", endTime: "" })
+            ).rejects.toThrow("Vui lòng chọn đoạn muốn cắt");
+        });
+
+        it("should accept string number params as valid trimming", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Long Video", duration: 600,
+                thumbnail: "t.jpg", id: "long123", channel: "Ch",
+            });
+            mockYoutubedl.mockResolvedValueOnce(undefined);
+
+            const result = await extractAndUpload(validUrl, userId, { startTime: "10", endTime: "120" });
+            expect(result.duration).toBe(110);
+        });
     });
 
     describe("Download & Upload", () => {
