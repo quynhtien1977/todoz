@@ -40,8 +40,20 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
     // 2. Check duration limit (max 5 phút = 300s)
     const MAX_DURATION = 5 * 60;
     const { startTime, endTime } = options;
-    const parsedStart = Number(startTime);
-    const parsedEnd = Number(endTime);
+    const normalizedStart =
+        startTime !== undefined && startTime !== null ? String(startTime).trim() : "";
+    const normalizedEnd =
+        endTime !== undefined && endTime !== null ? String(endTime).trim() : "";
+    const hasStart = normalizedStart !== "";
+    const hasEnd = normalizedEnd !== "";
+    const parsedStart = hasStart ? Number(normalizedStart) : undefined;
+    const parsedEnd = hasEnd ? Number(normalizedEnd) : undefined;
+    const hasAnyTrimParam = hasStart || hasEnd;
+
+    // Nếu client gửi một trong hai hoặc giá trị không phải số, báo lỗi rõ ràng
+    if (hasAnyTrimParam && (!Number.isFinite(parsedStart) || !Number.isFinite(parsedEnd))) {
+        throw new Error("Thời gian cắt không hợp lệ");
+    }
     const hasTrimmingParams = Number.isFinite(parsedStart) && Number.isFinite(parsedEnd);
 
     if (duration > MAX_DURATION && !hasTrimmingParams) {
@@ -55,6 +67,9 @@ export const extractAndUpload = async (youtubeUrl, userId, options = {}) => {
     }
 
     if (hasTrimmingParams) {
+        if (parsedEnd <= parsedStart) {
+            throw new Error("Thời gian kết thúc phải lớn hơn thời gian bắt đầu");
+        }
         if (parsedEnd - parsedStart > MAX_DURATION) {
             throw new Error(`Đoạn cắt không được dài hơn ${MAX_DURATION / 60} phút`);
         }
