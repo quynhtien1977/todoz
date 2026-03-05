@@ -228,6 +228,19 @@ const MusicPlayer = () => {
     };
   }, []);
 
+  // Cleanup tất cả SFX khi component unmount
+  useEffect(() => {
+    return () => {
+      Object.values(sfxRefs.current).forEach((audio) => {
+        if (audio) {
+          audio.pause();
+          audio.src = "";
+        }
+      });
+      sfxRefs.current = {};
+    };
+  }, []);
+
   const formatTime = (time) => { 
     if (isNaN(time)) return "0:00"; 
     return `${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, "0")}`; 
