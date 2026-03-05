@@ -11,7 +11,6 @@ import cloudinary from "../config/cloudinary.js";
 function isValidYouTubeUrl(url) {
     const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/|music\.youtube\.com\/watch\?v=)[\w-]+/;
     return pattern.test(url);
-    ỷtgrg
 }
 
 /**
