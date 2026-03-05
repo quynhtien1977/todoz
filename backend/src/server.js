@@ -133,6 +133,26 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
+// ==================== GLOBAL ERROR HANDLER ====================
+app.use((err, req, res, _next) => {
+  console.error("Unhandled error:", err.message);
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    success: false,
+    message: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+  });
+});
+
+// ==================== PROCESS ERROR HANDLERS ====================
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+  process.exit(1);
+});
+
 // ==================== STARTUP VALIDATION ====================
 const validateEnv = () => {
   const required = ["MONGODB_CONNECT_STRING", "JWT_SECRET"];
