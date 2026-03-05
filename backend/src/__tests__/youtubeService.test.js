@@ -323,6 +323,54 @@ describe("extractAndUpload", () => {
             const result = await extractAndUpload(validUrl, userId, { startTime: "10", endTime: "120" });
             expect(result.duration).toBe(110);
         });
+
+        it("should throw if only startTime is provided without endTime", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Video", duration: 200,
+                thumbnail: "t.jpg", id: "vid", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { startTime: 30 })
+            ).rejects.toThrow("Thời gian cắt không hợp lệ");
+        });
+
+        it("should throw if only endTime is provided without startTime", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Video", duration: 200,
+                thumbnail: "t.jpg", id: "vid", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { endTime: 120 })
+            ).rejects.toThrow("Thời gian cắt không hợp lệ");
+        });
+
+        it("should throw if trim params are non-numeric strings", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Video", duration: 200,
+                thumbnail: "t.jpg", id: "vid", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { startTime: "abc", endTime: "xyz" })
+            ).rejects.toThrow("Thời gian cắt không hợp lệ");
+        });
+
+        it("should treat whitespace-only params as no trimming (require trim for long video)", async () => {
+            mockYoutubedl.mockReset();
+            mockYoutubedl.mockResolvedValueOnce({
+                title: "Long Video", duration: 600,
+                thumbnail: "t.jpg", id: "long123", channel: "Ch",
+            });
+
+            await expect(
+                extractAndUpload(validUrl, userId, { startTime: "   ", endTime: "   " })
+            ).rejects.toThrow("Vui lòng chọn đoạn muốn cắt");
+        });
     });
 
     describe("Download & Upload", () => {
