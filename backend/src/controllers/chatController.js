@@ -1,3 +1,6 @@
+const MAX_MESSAGE_LENGTH = 500;
+const MAX_TASKS_FOR_CONTEXT = 50;
+
 export const chatWithAI = async (req, res) => {
   try {
     const { message, tasks } = req.body;
@@ -6,9 +9,16 @@ export const chatWithAI = async (req, res) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return res.status(400).json({ error: `Tin nhắn không được vượt quá ${MAX_MESSAGE_LENGTH} ký tự` });
+    }
+
+    // Giới hạn số tasks gửi lên để tránh prompt injection & tiết kiệm token
+    const limitedTasks = Array.isArray(tasks) ? tasks.slice(0, MAX_TASKS_FOR_CONTEXT) : [];
+
     // Context về tasks để AI hiểu
-    const tasksContext = tasks?.length
-      ? `Danh sách công việc hiện tại của người dùng:\n${tasks
+    const tasksContext = limitedTasks.length
+      ? `Danh sách công việc hiện tại của người dùng:\n${limitedTasks
           .map(
             (t) =>
               `- "${t.title}" (trạng thái: ${t.status}, ưu tiên: ${t.priority || "medium"}${t.description ? `, mô tả: ${t.description}` : ""}, tạo lúc: ${new Date(t.createdAt).toLocaleString("vi-VN")}${t.completedAt ? `, hoàn thành lúc: ${new Date(t.completedAt).toLocaleString("vi-VN")}` : ""})`
@@ -17,13 +27,13 @@ export const chatWithAI = async (req, res) => {
       : "Người dùng chưa có công việc nào.";
 
     // Thống kê tasks
-    const stats = tasks?.length ? {
-      total: tasks.length,
-      pending: tasks.filter(t => t.status === "pending").length,
-      inProgress: tasks.filter(t => t.status === "in-progress").length,
-      completed: tasks.filter(t => t.status === "completed").length,
-      cancelled: tasks.filter(t => t.status === "cancelled").length,
-      highPriority: tasks.filter(t => t.priority === "high").length,
+    const stats = limitedTasks.length ? {
+      total: limitedTasks.length,
+      pending: limitedTasks.filter(t => t.status === "pending").length,
+      inProgress: limitedTasks.filter(t => t.status === "in-progress").length,
+      completed: limitedTasks.filter(t => t.status === "completed").length,
+      cancelled: limitedTasks.filter(t => t.status === "cancelled").length,
+      highPriority: limitedTasks.filter(t => t.priority === "high").length,
     } : null;
 
     const statsContext = stats 
@@ -48,12 +58,16 @@ Câu hỏi của người dùng: ${message}`;
 
     // Gọi API Gemini bằng HTTP request
     const API_KEY = process.env.GEMINI_API_KEY;
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+    if (!API_KEY) {
+      return res.status(500).json({ error: "AI service chưa được cấu hình" });
+    }
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
     const response = await fetch(API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-goog-api-key": API_KEY,
       },
       body: JSON.stringify({
         contents: [

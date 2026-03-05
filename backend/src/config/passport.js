@@ -31,7 +31,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 });
                 
                 if (existingUser) {
-                    // Cập nhật user hiện có với Google OAuth
+                    // Auto account linking — gộp OAuth vào account hiện có
                     existingUser.authProvider = "google";
                     existingUser.providerId = profile.id;
                     existingUser.avatar = profile.photos?.[0]?.value || existingUser.avatar;
@@ -80,6 +80,7 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
                 const existingUser = await User.findOne({ email });
                 
                 if (existingUser) {
+                    // Auto account linking — gộp OAuth vào account hiện có
                     existingUser.authProvider = "facebook";
                     existingUser.providerId = profile.id;
                     existingUser.avatar = profile.photos?.[0]?.value || existingUser.avatar;
@@ -126,6 +127,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
                 const existingUser = await User.findOne({ email });
                 
                 if (existingUser) {
+                    // Auto account linking — gộp OAuth vào account hiện có
                     existingUser.authProvider = "github";
                     existingUser.providerId = profile.id.toString();
                     existingUser.avatar = profile.photos?.[0]?.value || existingUser.avatar;

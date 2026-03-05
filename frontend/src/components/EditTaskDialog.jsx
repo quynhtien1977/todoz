@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,15 @@ const EditTaskDialog = ({ task, open, setOpen, handleTaskChanged }) => {
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority || "medium");
   const [openPriority, setOpenPriority] = useState(false);
+
+  // Sync state khi dialog mở hoặc task thay đổi
+  useEffect(() => {
+    if (open) {
+      setTitle(task.title || "");
+      setDescription(task.description || "");
+      setPriority(task.priority || "medium");
+    }
+  }, [open, task]);
 
   // Guest task helper dùng guestStorage
   const updateGuestTask = (taskId, updates) => guestStorage.updateTask(taskId, updates);
