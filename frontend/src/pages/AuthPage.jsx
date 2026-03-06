@@ -8,6 +8,7 @@ import {
   Loader2,
   Sparkles,
   CheckCircle2,
+  ArrowRight,
   Eye,
   EyeOff,
   AlertCircle,

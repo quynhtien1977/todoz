@@ -15,7 +15,8 @@ const OAuthCallback = () => {
         const success = searchParams.get("success");
 
         if (error) {
-          navigate(`/login?error=${error}`);
+          const params = new URLSearchParams({ error });
+          navigate(`/login?${params.toString()}`);
           return;
         }
 

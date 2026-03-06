@@ -60,7 +60,8 @@ const sanitizeValue = (obj) => {
 };
 
 /**
- * Express middleware - sanitize req.body
+ * Express middleware - sanitize req.body, req.query
+ * Note: req.params không sanitize ở đây vì Express populate params SAU middleware
  * Dùng: app.use(sanitizeBody) hoặc router.use(sanitizeBody)
  */
 export const sanitizeBody = (req, res, next) => {
@@ -69,9 +70,6 @@ export const sanitizeBody = (req, res, next) => {
     }
     if (req.query && typeof req.query === 'object') {
         req.query = sanitizeValue(req.query);
-    }
-    if (req.params && typeof req.params === 'object') {
-        req.params = sanitizeValue(req.params);
     }
     next();
 };

@@ -34,9 +34,12 @@ app.post('/api/auth/register', register);
 app.post('/api/auth/login', login);
 app.put('/api/auth/change-password', protect, changePassword);
 
-// Test route for sanitization
+// Test routes for sanitization
 app.post('/api/test/echo', (req, res) => {
     res.json(req.body);
+});
+app.get('/api/test/echo-query', (req, res) => {
+    res.json(req.query);
 });
 
 let mongoServer;
@@ -331,6 +334,15 @@ describe('XSS Sanitization', () => {
 
             expect(res.body.task.title).not.toContain('onerror');
             expect(res.body.task.notes).toBe('Normal notes');
+        });
+
+        test('should sanitize query parameters', async () => {
+            const res = await request(app)
+                .get('/api/test/echo-query')
+                .query({ search: '<script>alert("xss")</script>hello' });
+
+            expect(res.body.search).toBe('hello');
+            expect(res.body.search).not.toContain('<script>');
         });
 
         test('should not break registration with clean data', async () => {
