@@ -30,8 +30,8 @@ import { hashOTP, OTP_EXPIRY_MINUTES } from '../utils/otpGenerator.js';
 // ==================== TIMEOUT ====================
 // bcrypt với salt 12 rounds rất chậm (~1-3s/hash tùy CPU load)
 // Nhiều test gọi createTestUser + requestForgotPassword (2-3 lần bcrypt)
-// → cần timeout cao hơn default 5000ms
-jest.setTimeout(15000);
+// Full suite chạy 8 file → CPU contention → cần timeout rộng
+jest.setTimeout(30000);
 
 // ==================== MOCK EMAIL SERVICE ====================
 // Mock sendOTPEmail để không gửi email thật trong tests
