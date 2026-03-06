@@ -550,7 +550,8 @@ export const oauthCallback = (req, res) => {
     res.cookie("token", token, cookieOptions);
     
     // Redirect về frontend - không đặt token trên URL (bảo mật hơn)
-    res.redirect(`${process.env.FRONTEND_URL}/oauth/callback?success=true`);
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    res.redirect(`${frontendUrl}/oauth/callback?success=true`);
 };
 
 // ==================== FORGOT PASSWORD ====================

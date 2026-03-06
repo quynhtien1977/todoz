@@ -61,6 +61,7 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getPasswordStrength } from "@/lib/passwordStrength";
 
 const ProfilePage = () => {
   const { user, checkAuth, logout } = useAuth();
@@ -124,7 +125,6 @@ const ProfilePage = () => {
       return;
     }
     fetchProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
   const fetchProfile = async () => {
@@ -334,25 +334,10 @@ const ProfilePage = () => {
     }
   };
 
-  // Password strength
-  const getPasswordStrength = (pw) => {
-    if (!pw) return { level: 0, label: "", color: "" };
-    let score = 0;
-    if (pw.length >= 6) score++;
-    if (pw.length >= 10) score++;
-    if (/[A-Z]/.test(pw)) score++;
-    if (/[0-9]/.test(pw)) score++;
-    if (/[^A-Za-z0-9]/.test(pw)) score++;
-
-    if (score <= 1) return { level: 1, label: "Yếu", color: "bg-red-500" };
-    if (score <= 2) return { level: 2, label: "Trung bình", color: "bg-orange-500" };
-    if (score <= 3) return { level: 3, label: "Khá", color: "bg-yellow-500" };
-    if (score <= 4) return { level: 4, label: "Mạnh", color: "bg-green-500" };
-    return { level: 5, label: "Rất mạnh", color: "bg-emerald-500" };
-  };
+  // Password strength — dùng hàm chung từ lib
 
   const avatarUrl = user?.avatar && user.avatar !== "/default_avatar.jpg"
-    ? `${user.avatar}?t=${Date.now()}`
+    ? user.avatar
     : "/default_avatar.jpg";
 
   const isPro = user?.role === "pro" || user?.role === "admin";
@@ -1100,11 +1085,11 @@ const ProfilePage = () => {
                             {passwords.newPassword && (
                               <div className="space-y-1">
                                 <div className="flex gap-1">
-                                  {[1, 2, 3, 4, 5].map((i) => (
+                                  {[1, 2, 3, 4].map((i) => (
                                     <div
                                       key={i}
                                       className={`h-1 flex-1 rounded-full ${
-                                        i <= passwordStrength.level
+                                        i <= passwordStrength.score
                                           ? passwordStrength.color
                                           : "bg-gray-200"
                                       }`}
