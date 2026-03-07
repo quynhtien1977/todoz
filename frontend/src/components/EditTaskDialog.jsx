@@ -42,6 +42,7 @@ const EditTaskDialog = ({ task, open, setOpen, handleTaskChanged }) => {
   const [openPriority, setOpenPriority] = useState(false);
 
   // Sync state khi dialog mở hoặc task thay đổi
+  /* eslint-disable react-hooks/set-state-in-effect -- legitimate prop sync on dialog open */
   useEffect(() => {
     if (open) {
       setTitle(task.title || "");
@@ -49,6 +50,7 @@ const EditTaskDialog = ({ task, open, setOpen, handleTaskChanged }) => {
       setPriority(task.priority || "medium");
     }
   }, [open, task]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Guest task helper dùng guestStorage
   const updateGuestTask = (taskId, updates) => guestStorage.updateTask(taskId, updates);

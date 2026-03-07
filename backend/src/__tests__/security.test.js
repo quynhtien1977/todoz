@@ -21,22 +21,25 @@ import User from '../models/User.js';
 import Task from '../models/Task.js';
 import { register, login, changePassword } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { sanitizeBody, stripHtmlTags, sanitizeValue } from '../middleware/xssSanitizer.js';
+import { sanitizeRequest, stripHtmlTags, sanitizeValue } from '../middleware/xssSanitizer.js';
 import { logSecurityEvent } from '../utils/securityLogger.js';
 
 // ==================== APP SETUP ====================
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-app.use(sanitizeBody);
+app.use(sanitizeRequest);
 
 app.post('/api/auth/register', register);
 app.post('/api/auth/login', login);
 app.put('/api/auth/change-password', protect, changePassword);
 
-// Test route for sanitization
+// Test routes for sanitization
 app.post('/api/test/echo', (req, res) => {
     res.json(req.body);
+});
+app.get('/api/test/echo-query', (req, res) => {
+    res.json(req.query);
 });
 
 let mongoServer;
@@ -306,7 +309,7 @@ describe('XSS Sanitization', () => {
         });
     });
 
-    describe('sanitizeBody middleware', () => {
+    describe('sanitizeRequest middleware', () => {
         test('should sanitize request body', async () => {
             const res = await request(app)
                 .post('/api/test/echo')
@@ -331,6 +334,15 @@ describe('XSS Sanitization', () => {
 
             expect(res.body.task.title).not.toContain('onerror');
             expect(res.body.task.notes).toBe('Normal notes');
+        });
+
+        test('should sanitize query parameters', async () => {
+            const res = await request(app)
+                .get('/api/test/echo-query')
+                .query({ search: '<script>alert("xss")</script>hello' });
+
+            expect(res.body.search).toBe('hello');
+            expect(res.body.search).not.toContain('<script>');
         });
 
         test('should not break registration with clean data', async () => {

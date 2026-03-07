@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
       const response = await api.get("/auth/verify");
       setUser(response.data.user);
       setIsGuest(false);
-    } catch (error) {
+    } catch {
       setUser(null);
       setIsGuest(true);
     } finally {

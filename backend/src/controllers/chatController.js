@@ -6,14 +6,14 @@ export const chatWithAI = async (req, res) => {
     const { message, tasks } = req.body;
 
     if (!message) {
-      return res.status(400).json({ error: "Message is required" });
+      return res.status(400).json({ error: "Vui lòng nhập tin nhắn" });
     }
 
     if (message.length > MAX_MESSAGE_LENGTH) {
       return res.status(400).json({ error: `Tin nhắn không được vượt quá ${MAX_MESSAGE_LENGTH} ký tự` });
     }
 
-    // Giới hạn số tasks gửi lên để tránh prompt injection & tiết kiệm token
+    // Giới hạn số tasks gửi lên để giảm context size & tiết kiệm token
     const limitedTasks = Array.isArray(tasks) ? tasks.slice(0, MAX_TASKS_FOR_CONTEXT) : [];
 
     // Context về tasks để AI hiểu

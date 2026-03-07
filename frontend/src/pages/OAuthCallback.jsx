@@ -10,21 +10,26 @@ const OAuthCallback = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const error = searchParams.get("error");
-      const success = searchParams.get("success");
+      try {
+        const error = searchParams.get("error");
+        const success = searchParams.get("success");
 
-      if (error) {
-        navigate(`/login?error=${error}`);
-        return;
-      }
+        if (error) {
+          const params = new URLSearchParams({ error });
+          navigate(`/login?${params.toString()}`);
+          return;
+        }
 
-      if (success === "true") {
-        // Cookie đã được set bởi backend trước khi redirect
-        await checkAuth();
-        // Merge guest tasks nếu người dùng có data từ trước khi đăng nhập OAuth
-        await mergeGuestTasksToServer();
-        navigate("/");
-      } else {
+        if (success === "true") {
+          // Cookie đã được set bởi backend trước khi redirect
+          await checkAuth();
+          // Merge guest tasks nếu người dùng có data từ trước khi đăng nhập OAuth
+          await mergeGuestTasksToServer();
+          navigate("/");
+        } else {
+          navigate("/login?error=oauth_failed");
+        }
+      } catch {
         navigate("/login?error=oauth_failed");
       }
     };

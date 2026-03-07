@@ -18,7 +18,6 @@ import { options } from "@/lib/data";
 
 const DateTimeFilter = ({ dateQuery, setDateQuery }) => {
   const [open, setOpen] = React.useState(false);
-  const [value, setValue] = React.useState("");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

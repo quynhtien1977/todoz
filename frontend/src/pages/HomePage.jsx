@@ -69,9 +69,11 @@ const HomePage = () => {
     }
   }, [authLoading, user, dateQuery, calculateStats]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- standard data fetching */
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Reset page khi filter thay đổi
   const handleFilterChange = useCallback((newFilter) => {
@@ -145,11 +147,13 @@ const HomePage = () => {
   );
 
   // Auto-go-back khi page hiện tại trống (ví dụ xóa hết task ở page cuối)
+  /* eslint-disable react-hooks/set-state-in-effect -- auto-correction for empty page */
   useEffect(() => {
     if (visibleTasks.length === 0 && page > 1) {
       setPage((prev) => prev - 1);
     }
   }, [visibleTasks.length, page]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const totalPages = Math.ceil(filteredTasks.length / visibleTaskLimit);
 

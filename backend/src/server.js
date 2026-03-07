@@ -15,7 +15,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
 import hpp from "hpp";
-import { sanitizeBody } from "./middleware/xssSanitizer.js";
+import { sanitizeRequest } from "./middleware/xssSanitizer.js";
 
 dotenv.config();
 
@@ -100,7 +100,7 @@ app.use(mongoSanitize());
 app.use(hpp());
 
 // 7. XSS Sanitizer - Lọc HTML/script tags từ user input
-app.use(sanitizeBody);
+app.use(sanitizeRequest);
 
 // 8. Passport
 app.use(passport.initialize());
@@ -136,7 +136,7 @@ if (process.env.NODE_ENV === "production") {
 // ==================== GLOBAL ERROR HANDLER ====================
 app.use((err, req, res, _next) => {
   console.error("Unhandled error:", err.message);
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || err.status || 500;
   res.status(statusCode).json({
     success: false,
     message: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,26 +15,9 @@ import {
   KeyRound,
 } from "lucide-react";
 import api from "../lib/axios";
-
-const getPasswordStrength = (password) => {
-  if (!password) return { score: 0, label: "", color: "" };
-  let score = 0;
-  if (password.length >= 6) score += 1;
-  if (password.length >= 8) score += 1;
-  if (password.length >= 12) score += 1;
-  if (/[a-z]/.test(password)) score += 1;
-  if (/[A-Z]/.test(password)) score += 1;
-  if (/[0-9]/.test(password)) score += 1;
-  if (/[^a-zA-Z0-9]/.test(password)) score += 1;
-
-  if (score <= 2) return { score: 1, label: "Yếu", color: "bg-red-500" };
-  if (score <= 4) return { score: 2, label: "Trung bình", color: "bg-yellow-500" };
-  if (score <= 5) return { score: 3, label: "Khá", color: "bg-blue-500" };
-  return { score: 4, label: "Mạnh", color: "bg-green-500" };
-};
+import { getPasswordStrength } from "@/lib/passwordStrength";
 
 const ResetPasswordPage = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const emailFromQuery = searchParams.get("email") || "";
 
