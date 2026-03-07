@@ -229,6 +229,87 @@ describe("getAllTasks", () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
     });
+
+    it("should filter tasks by week (from Monday)", async () => {
+      const now = new Date();
+      // Create task today (should be included)
+      await Task.create({ title: "This Week Task", userId: testUser._id });
+
+      // Create task 2 weeks ago (should NOT be included)
+      const twoWeeksAgo = new Date(now);
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+      await Task.collection.insertOne({
+        title: "Old Week Task",
+        userId: testUser._id,
+        status: "pending",
+        priority: "medium",
+        createdAt: twoWeeksAgo,
+        updatedAt: twoWeeksAgo
+      });
+
+      const req = mockRequest({ user: testUser, query: { filter: "week" } });
+      const res = mockResponse();
+
+      await getAllTasks(req, res);
+
+      const response = res.json.mock.calls[0][0];
+      expect(response.tasks).toHaveLength(1);
+      expect(response.tasks[0].title).toBe("This Week Task");
+    });
+
+    it("should filter tasks by month", async () => {
+      const now = new Date();
+      // Create task today (should be included)
+      await Task.create({ title: "This Month Task", userId: testUser._id });
+
+      // Create task 2 months ago (should NOT be included)
+      const twoMonthsAgo = new Date(now);
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      await Task.collection.insertOne({
+        title: "Old Month Task",
+        userId: testUser._id,
+        status: "pending",
+        priority: "medium",
+        createdAt: twoMonthsAgo,
+        updatedAt: twoMonthsAgo
+      });
+
+      const req = mockRequest({ user: testUser, query: { filter: "month" } });
+      const res = mockResponse();
+
+      await getAllTasks(req, res);
+
+      const response = res.json.mock.calls[0][0];
+      expect(response.tasks).toHaveLength(1);
+      expect(response.tasks[0].title).toBe("This Month Task");
+    });
+
+    it("should filter tasks by year", async () => {
+      const now = new Date();
+      // Create task today (should be included)
+      await Task.create({ title: "This Year Task", userId: testUser._id });
+
+      // Create task 2 years ago (should NOT be included)
+      const twoYearsAgo = new Date(now);
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+      await Task.collection.insertOne({
+        title: "Old Year Task",
+        userId: testUser._id,
+        status: "pending",
+        priority: "medium",
+        createdAt: twoYearsAgo,
+        updatedAt: twoYearsAgo
+      });
+
+      const req = mockRequest({ user: testUser, query: { filter: "year" } });
+      const res = mockResponse();
+
+      await getAllTasks(req, res);
+
+      const response = res.json.mock.calls[0][0];
+      expect(response.tasks).toHaveLength(1);
+      expect(response.tasks[0].title).toBe("This Year Task");
+    });
   });
 
   describe("Error Handling", () => {

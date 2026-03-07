@@ -70,7 +70,7 @@ beforeEach(async () => {
 
 // ==================== HELPERS ====================
 const createTestUser = async (overrides = {}) => {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash('password123', salt);
     return User.create({
         name: 'Test User',
