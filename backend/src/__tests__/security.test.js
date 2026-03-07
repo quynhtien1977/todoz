@@ -21,14 +21,14 @@ import User from '../models/User.js';
 import Task from '../models/Task.js';
 import { register, login, changePassword } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { sanitizeBody, stripHtmlTags, sanitizeValue } from '../middleware/xssSanitizer.js';
+import { sanitizeRequest, stripHtmlTags, sanitizeValue } from '../middleware/xssSanitizer.js';
 import { logSecurityEvent } from '../utils/securityLogger.js';
 
 // ==================== APP SETUP ====================
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-app.use(sanitizeBody);
+app.use(sanitizeRequest);
 
 app.post('/api/auth/register', register);
 app.post('/api/auth/login', login);
@@ -309,7 +309,7 @@ describe('XSS Sanitization', () => {
         });
     });
 
-    describe('sanitizeBody middleware', () => {
+    describe('sanitizeRequest middleware', () => {
         test('should sanitize request body', async () => {
             const res = await request(app)
                 .post('/api/test/echo')

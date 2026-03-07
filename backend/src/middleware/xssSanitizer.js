@@ -1,7 +1,7 @@
 /**
  * XSS Sanitization Middleware
  * 
- * Lọc HTML tags và potential XSS payloads từ req.body
+ * Lọc HTML tags và potential XSS payloads từ req.body và req.query
  * Không dùng external package - lightweight custom implementation
  */
 
@@ -62,9 +62,9 @@ const sanitizeValue = (obj) => {
 /**
  * Express middleware - sanitize req.body, req.query
  * Note: req.params không sanitize ở đây vì Express populate params SAU middleware
- * Dùng: app.use(sanitizeBody) hoặc router.use(sanitizeBody)
+ * Dùng: app.use(sanitizeRequest) hoặc router.use(sanitizeRequest)
  */
-export const sanitizeBody = (req, res, next) => {
+export const sanitizeRequest = (req, res, next) => {
     if (req.body && typeof req.body === 'object') {
         req.body = sanitizeValue(req.body);
     }
@@ -77,4 +77,4 @@ export const sanitizeBody = (req, res, next) => {
 // Export cho testing
 export { stripHtmlTags, sanitizeValue };
 
-export default sanitizeBody;
+export default sanitizeRequest;
