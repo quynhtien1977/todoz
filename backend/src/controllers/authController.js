@@ -122,7 +122,7 @@ export const register = async (req, res) => {
             });
         }
         
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(12);
         const hashedPassword = await bcrypt.hash(password, salt);
         
         const user = await User.create({
@@ -475,7 +475,7 @@ export const changePassword = async (req, res) => {
             });
         }
         
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(12);
         user.password = await bcrypt.hash(newPassword, salt);
         await user.save();
         

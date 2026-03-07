@@ -31,7 +31,9 @@ import {
     logout,
     getProfile,
     updateProfile,
+    updatePreferences,
     changePassword,
+    deleteAccount,
     verifyToken,
     mergeGuestTasks,
     oauthCallback
@@ -50,6 +52,8 @@ app.post('/api/auth/logout', logout);
 app.get('/api/auth/profile', protect, getProfile);
 app.put('/api/auth/profile', protect, updateProfile);
 app.put('/api/auth/change-password', protect, changePassword);
+app.put('/api/auth/preferences', protect, updatePreferences);
+app.delete('/api/auth/account', protect, deleteAccount);
 app.get('/api/auth/verify', protect, verifyToken);
 app.post('/api/auth/merge-tasks', protect, mergeGuestTasks);
 
@@ -88,7 +92,7 @@ beforeEach(async () => {
 
 // ==================== HELPER FUNCTIONS ====================
 const createTestUser = async (overrides = {}) => {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash('password123', salt);
     return User.create({
         name: 'Test User',
@@ -988,5 +992,225 @@ describe('Full Auth Flow', () => {
         // But cookie-based auth should fail after logout
         const cookieStr = logoutRes.headers['set-cookie'].join(';');
         expect(cookieStr).toContain('token=none');
+    });
+});
+
+// ==================== DELETE ACCOUNT (T-2) ====================
+describe('Delete Account', () => {
+    it('should delete account with correct password', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        // Create a task that should be deleted with the account
+        await request(app)
+            .get('/api/auth/profile')
+            .set('Authorization', `Bearer ${token}`);
+
+        const res = await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ password: 'password123' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.message).toBe('Tài khoản đã được xóa thành công');
+
+        // Verify user is deleted
+        const user = await User.findOne({ email: 'test@example.com' });
+        expect(user).toBeNull();
+    });
+
+    it('should require password for local auth users', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({});
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Vui lòng nhập mật khẩu để xác nhận xóa tài khoản');
+    });
+
+    it('should reject wrong password', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ password: 'wrongpassword' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Mật khẩu không đúng');
+    });
+
+    it('should delete all user tasks when account is deleted', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        // Get user id
+        const profileRes = await request(app)
+            .get('/api/auth/profile')
+            .set('Authorization', `Bearer ${token}`);
+        const userId = profileRes.body.user._id;
+
+        // Create tasks for this user
+        await Task.create([
+            { title: 'Task 1', userId },
+            { title: 'Task 2', userId },
+        ]);
+
+        // Verify tasks exist
+        expect(await Task.countDocuments({ userId })).toBe(2);
+
+        await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ password: 'password123' });
+
+        // Verify tasks are deleted
+        expect(await Task.countDocuments({ userId })).toBe(0);
+    });
+
+    it('should clear auth cookie on delete', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ password: 'password123' });
+
+        const cookieStr = res.headers['set-cookie']?.join(';') || '';
+        expect(cookieStr).toContain('token=none');
+    });
+
+    it('should allow OAuth users to delete without password', async () => {
+        const oauthUser = await User.create({
+            name: 'OAuth User',
+            email: 'oauth@example.com',
+            authProvider: 'google',
+            providerId: 'google123',
+        });
+
+        const token = jwt.sign({ id: oauthUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        const res = await request(app)
+            .delete('/api/auth/account')
+            .set('Authorization', `Bearer ${token}`)
+            .send({});
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+    });
+});
+
+// ==================== UPDATE PREFERENCES (T-3) ====================
+describe('Update Preferences', () => {
+    it('should update theme preference', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .put('/api/auth/preferences')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ theme: 'dark' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.user.preferences.theme).toBe('dark');
+    });
+
+    it('should update language preference', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .put('/api/auth/preferences')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ language: 'en' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.user.preferences.language).toBe('en');
+    });
+
+    it('should update defaultPriority', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .put('/api/auth/preferences')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ defaultPriority: 'high' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.user.preferences.defaultPriority).toBe('high');
+    });
+
+    it('should update notification preferences', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .put('/api/auth/preferences')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ notifications: { email: false, push: true } });
+
+        expect(res.status).toBe(200);
+        expect(res.body.user.preferences.notifications.email).toBe(false);
+        expect(res.body.user.preferences.notifications.push).toBe(true);
+    });
+
+    it('should update multiple preferences at once', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        const res = await request(app)
+            .put('/api/auth/preferences')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                theme: 'light',
+                language: 'en',
+                defaultPriority: 'low',
+                notifications: { email: true },
+            });
+
+        expect(res.status).toBe(200);
+        expect(res.body.user.preferences.theme).toBe('light');
+        expect(res.body.user.preferences.language).toBe('en');
+        expect(res.body.user.preferences.defaultPriority).toBe('low');
+        expect(res.body.user.preferences.notifications.email).toBe(true);
+    });
+
+    it('should not modify other fields when updating preferences', async () => {
+        const registerRes = await registerAndGetToken();
+        const token = registerRes.body.token;
+
+        // Get initial profile
+        const profileBefore = await request(app)
+            .get('/api/auth/profile')
+            .set('Authorization', `Bearer ${token}`);
+
+        await request(app)
+            .put('/api/auth/preferences')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ theme: 'dark' });
+
+        const profileAfter = await request(app)
+            .get('/api/auth/profile')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(profileAfter.body.user.name).toBe(profileBefore.body.user.name);
+        expect(profileAfter.body.user.email).toBe(profileBefore.body.user.email);
+    });
+
+    it('should require authentication', async () => {
+        const res = await request(app)
+            .put('/api/auth/preferences')
+            .send({ theme: 'dark' });
+
+        expect(res.status).toBe(401);
     });
 });
