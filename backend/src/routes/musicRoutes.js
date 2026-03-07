@@ -28,7 +28,7 @@ router.post("/youtube/preview", protect, previewYouTube);
 router.post("/youtube", protect, addFromYouTube);
 
 // GET /api/music/:id - Lấy một bài nhạc theo ID
-router.get("/:id", optionalAuth, getMusicById);
+router.get("/:id", getMusicById);
 
 // POST /api/music - Thêm nhạc mới (admin)
 router.post("/", protect, addMusic);
@@ -43,6 +43,6 @@ router.delete("/:id", protect, deleteMusic);
 router.patch("/:id/favorite", protect, toggleFavorite);
 
 // PATCH /api/music/:id/play - Increment play count
-router.patch("/:id/play", optionalAuth, incrementPlayCount);
+router.patch("/:id/play", incrementPlayCount);
 
 export default router;
