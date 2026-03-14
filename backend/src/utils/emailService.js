@@ -11,6 +11,20 @@ import nodemailer from "nodemailer";
 let cachedTransporter = null;
 
 /**
+ * Escape HTML special characters to prevent XSS in email templates
+ */
+const escapeHtml = (str) => {
+    if (typeof str !== "string") return "";
+    return str.replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+    }[char]));
+};
+
+/**
  * Tạo transporter dựa trên environment
  */
 const createTransporter = async () => {
@@ -62,6 +76,9 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
 
     const subject = `[TodoZ] Mã OTP đặt lại mật khẩu: ${otp}`;
 
+    const safeName = escapeHtml(name);
+    const safeOtp = escapeHtml(otp);
+
     const html = `
     <!DOCTYPE html>
     <html>
@@ -88,11 +105,11 @@ export const sendOTPEmail = async (to, otp, name = "bạn") => {
                 <p>TodoZ - Quản lý công việc</p>
             </div>
             <div class="body">
-                <p style="color: #334155; font-size: 16px;">Xin chào <strong>${name}</strong>,</p>
+                <p style="color: #334155; font-size: 16px;">Xin chào <strong>${safeName}</strong>,</p>
                 <p class="info">Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản TodoZ. Vui lòng sử dụng mã OTP bên dưới:</p>
                 
                 <div class="otp-box">
-                    <div class="otp-code">${otp}</div>
+                    <div class="otp-code">${safeOtp}</div>
                 </div>
                 
                 <p class="info">Mã này sẽ hết hạn sau <strong>10 phút</strong>.</p>

@@ -50,8 +50,8 @@ export const getAllMusic = async (req, res) => {
             ? { $or: [{ userId: null }, { userId }] }
             : { userId: null };
         
-        if (type) filter.type = type;
-        if (category) filter.category = category;
+        if (type && type.trim()) filter.type = type;
+        if (category && category.trim()) filter.category = category;
         
         const music = await Music.find(filter).sort({ createdAt: -1 }).lean();
 
@@ -59,7 +59,7 @@ export const getAllMusic = async (req, res) => {
         const data = music.map(m => ({
             ...m,
             isOwner: userId ? m.userId?.toString() === userId.toString() : false,
-            isFavorite: userId ? (m.favoritedBy || []).some(id => id.toString() === userId.toString()) : false,
+            isFavorite: userId ? (m.favoritedBy || []).some(id => id && id.toString() === userId.toString()) : false,
         }));
 
         // Đếm số nhạc cá nhân của user
@@ -345,23 +345,27 @@ export const toggleFavorite = async (req, res) => {
             return res.status(404).json({ success: false, message: "Music not found" });
         }
         
-        const index = (music.favoritedBy || []).findIndex(
-            id => id.toString() === userId.toString()
+        const isFavorited = (music.favoritedBy || []).some(
+            id => id && id.toString() === userId.toString()
         );
 
-        if (index === -1) {
-            music.favoritedBy.push(userId);
-        } else {
-            music.favoritedBy.splice(index, 1);
-        }
-        await music.save();
+        // Use atomic operations to avoid race condition
+        const update = isFavorited
+            ? { $pull: { favoritedBy: userId } }
+            : { $addToSet: { favoritedBy: userId } };
+
+        const updatedMusic = await Music.findByIdAndUpdate(
+            req.params.id,
+            update,
+            { new: true }
+        );
 
         res.status(200).json({ 
             success: true, 
             data: {
-                ...music.toObject(),
-                isFavorite: index === -1, // true nếu vừa thêm
-                isOwner: music.userId?.toString() === userId.toString(),
+                ...updatedMusic.toObject(),
+                isFavorite: !isFavorited,
+                isOwner: updatedMusic.userId?.toString() === userId.toString(),
             }
         });
     } catch (error) {

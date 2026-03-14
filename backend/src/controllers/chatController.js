@@ -1,5 +1,6 @@
 const MAX_MESSAGE_LENGTH = 500;
 const MAX_TASKS_FOR_CONTEXT = 50;
+const GEMINI_API_TIMEOUT_MS = 30000;
 
 export const chatWithAI = async (req, res) => {
   try {
@@ -63,26 +64,35 @@ Câu hỏi của người dùng: ${message}`;
     }
     const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": API_KEY,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024,
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GEMINI_API_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": API_KEY,
         },
-      }),
-    });
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          },
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const data = await response.json();
 

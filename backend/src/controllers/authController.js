@@ -514,14 +514,21 @@ export const mergeGuestTasks = async (req, res) => {
         }
         
         // Tạo tasks mới với userId
-        const tasksToCreate = guestTasks.map(task => ({
-            title: task.title,
-            description: task.description || "",
-            status: task.status || "pending",
-            priority: task.priority || "medium",
-            completedAt: task.completedAt || null,
-            userId: userId
-        }));
+        const VALID_STATUSES = ["pending", "in-progress", "completed", "cancelled"];
+        const VALID_PRIORITIES = ["low", "medium", "high"];
+        const MAX_TITLE_LENGTH = 500;
+        const MAX_DESC_LENGTH = 5000;
+
+        const tasksToCreate = guestTasks
+            .filter(task => task.title && typeof task.title === "string" && task.title.trim())
+            .map(task => ({
+                title: task.title.trim().substring(0, MAX_TITLE_LENGTH),
+                description: typeof task.description === "string" ? task.description.substring(0, MAX_DESC_LENGTH) : "",
+                status: VALID_STATUSES.includes(task.status) ? task.status : "pending",
+                priority: VALID_PRIORITIES.includes(task.priority) ? task.priority : "medium",
+                completedAt: task.completedAt && !isNaN(new Date(task.completedAt).getTime()) ? new Date(task.completedAt) : null,
+                userId: userId
+            }));
         
         const createdTasks = await Task.insertMany(tasksToCreate);
         

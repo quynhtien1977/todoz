@@ -5,10 +5,12 @@ const taskSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
+        maxlength: [500, "Tiêu đề không được quá 500 ký tự"],
     },
     description: {
         type: String,
-        required: false
+        required: false,
+        maxlength: [5000, "Mô tả không được quá 5000 ký tự"],
     },
     status: {
         type: String,

@@ -9,13 +9,14 @@ import { deleteCustomThumbnail } from "../controllers/musicController.js";
 const router = express.Router();
 
 // Multer memory storage — giữ buffer để upload lên Cloudinary
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
 const upload = multer({
     storage: multer.memoryStorage(),
     fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith("image/")) {
+        if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error("Chỉ chấp nhận file ảnh"), false);
+            cb(new Error("Chỉ chấp nhận JPEG, PNG, WebP, GIF"), false);
         }
     },
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB
